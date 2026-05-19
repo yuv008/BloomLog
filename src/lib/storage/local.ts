@@ -60,6 +60,12 @@ export const localStore = {
     const all = read<Record<string, Expense[]>>("expenses", {});
     return all[date] ?? [];
   },
+  getExpensesForMonth(month: string): Expense[] {
+    const all = read<Record<string, Expense[]>>("expenses", {});
+    return Object.entries(all).flatMap(([date, list]) =>
+      date.startsWith(month) ? list : []
+    );
+  },
   addExpense(expense: Expense) {
     const all = read<Record<string, Expense[]>>("expenses", {});
     const list = all[expense.date] ?? [];

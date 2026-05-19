@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import * as api from "@/lib/data/api";
-import { todayKey } from "@/lib/dates";
+import { todayKey, monthKey } from "@/lib/dates";
 
 export function useUserId() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -35,6 +35,15 @@ export function useExpenses(userId: string | null) {
   return useQuery({
     queryKey: ["expenses", userId, date],
     queryFn: () => (userId ? api.getExpenses(userId, date) : []),
+    enabled: !!userId,
+  });
+}
+
+export function useMonthlyExpenses(userId: string | null) {
+  const month = monthKey();
+  return useQuery({
+    queryKey: ["expenses-month", userId, month],
+    queryFn: () => (userId ? api.getExpensesForMonth(userId, month) : []),
     enabled: !!userId,
   });
 }

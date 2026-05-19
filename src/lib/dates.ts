@@ -1,7 +1,26 @@
-import { format, startOfWeek, endOfWeek, subDays } from "date-fns";
+import { format, startOfWeek, endOfWeek, subDays, endOfMonth } from "date-fns";
 
 export function todayKey(): string {
   return format(new Date(), "yyyy-MM-dd");
+}
+
+export function monthKey(date = new Date()): string {
+  return format(date, "yyyy-MM");
+}
+
+export function monthDateRange(month = monthKey()) {
+  const [year, monthNum] = month.split("-").map(Number);
+  const start = new Date(year, monthNum - 1, 1);
+  const end = endOfMonth(start);
+  return {
+    start: format(start, "yyyy-MM-dd"),
+    end: format(end, "yyyy-MM-dd"),
+  };
+}
+
+export function monthLabel(month = monthKey()): string {
+  const [year, monthNum] = month.split("-").map(Number);
+  return format(new Date(year, monthNum - 1, 1), "MMMM yyyy");
 }
 
 export function weekRange(date = new Date()) {

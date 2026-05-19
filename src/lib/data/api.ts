@@ -2,7 +2,7 @@
 
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { localStore, getOrCreateGuestId } from "@/lib/storage/local";
-import { todayKey } from "@/lib/dates";
+import { todayKey, monthKey, monthDateRange } from "@/lib/dates";
 import { ensureAuth, shouldUseSupabase, isLocalUserId } from "@/lib/data/auth";
 import type {
   DailyEntry,
@@ -168,6 +168,27 @@ export async function getExpenses(
     if (!error && data) return data as Expense[];
   }
   return localStore.getExpenses(date);
+}
+
+export async function getExpensesForMonth(
+  userId: string,
+  month = monthKey()
+): Promise<Expense[]> {
+  const { start, end } = monthDateRange(month);
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
+      .from("expenses")
+      .select("*")
+      .eq("user_id", userId)
+      .gte("date", start)
+      .lte("date", end)
+      .order("date", { ascending: true });
+    if (!error && data) return data as Expense[];
+  }
+  const local = localStore.getExpensesForMonth(month);
+  if (isLocalUserId(userId)) return local;
+  return local.filter((e) => e.user_id === userId);
 }
 
 export async function addExpense(

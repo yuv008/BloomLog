@@ -6,6 +6,7 @@ import { MoodSkyBackground, MoodCarousel } from "@/components/mood/mood-sky";
 import { GreetingHeader } from "@/components/layout/greeting-header";
 import { WaterBottleCard } from "@/components/water/water-bottle";
 import { SpendBubblesCard } from "@/components/finance/spend-bubbles";
+import { MonthlySpendChart } from "@/components/finance/monthly-spend-chart";
 import { MealTimelineCard } from "@/components/food/meal-timeline";
 import { TinyQuestsCard } from "@/components/quests/tiny-quests";
 import { SleepTrackerCard } from "@/components/sleep/sleep-tracker";
@@ -16,6 +17,7 @@ import {
   useProfile,
   useDaily,
   useExpenses,
+  useMonthlyExpenses,
   useMeals,
   useQuests,
   useInvalidateDaily,
@@ -24,7 +26,7 @@ import {
 import { useWhisper } from "@/hooks/use-whisper";
 import { useUiStore } from "@/stores/use-ui-store";
 import * as api from "@/lib/data/api";
-import { todayKey } from "@/lib/dates";
+import { todayKey, monthKey } from "@/lib/dates";
 import { trackEvent } from "@/lib/analytics/posthog";
 import type { Mood, ExpenseCategory, FoodTag, SleepQuality } from "@/lib/types";
 
@@ -34,6 +36,7 @@ export default function DashboardPage() {
   const { data: profile } = useProfile(userId);
   const { data: daily } = useDaily(userId);
   const { data: expenses = [] } = useExpenses(userId);
+  const { data: monthlyExpenses = [] } = useMonthlyExpenses(userId);
   const { data: meals = [] } = useMeals(userId);
   const { data: quests = [] } = useQuests(userId);
   const invalidate = useInvalidateDaily();
@@ -54,6 +57,7 @@ export default function DashboardPage() {
       const date = todayKey();
       qc.invalidateQueries({ queryKey: ["daily", userId, date] });
       qc.invalidateQueries({ queryKey: ["expenses", userId, date] });
+      qc.invalidateQueries({ queryKey: ["expenses-month", userId, monthKey()] });
       qc.invalidateQueries({ queryKey: ["meals", userId, date] });
       qc.invalidateQueries({ queryKey: ["quests", userId, date] });
     }
@@ -96,14 +100,17 @@ export default function DashboardPage() {
         />
 
         {profile?.finance_enabled !== false && (
-          <SpendBubblesCard
-            expenses={expenses}
-            onAdd={async (category: ExpenseCategory, amount: number) => {
-              await api.addExpense(userId, category, amount);
-              trackEvent("expense_logged", { category, amount });
-              refresh();
-            }}
-          />
+          <>
+            <SpendBubblesCard
+              expenses={expenses}
+              onAdd={async (category: ExpenseCategory, amount: number) => {
+                await api.addExpense(userId, category, amount);
+                trackEvent("expense_logged", { category, amount });
+                refresh();
+              }}
+            />
+            <MonthlySpendChart expenses={monthlyExpenses} />
+          </>
         )}
 
         <MealTimelineCard
