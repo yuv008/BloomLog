@@ -18,5 +18,6 @@ create index if not exists idx_journal_user_created
 
 alter table journal_letters enable row level security;
 
+drop policy if exists "journal_own" on journal_letters;
 create policy "journal_own" on journal_letters
   for all using (auth.uid() = user_id);
