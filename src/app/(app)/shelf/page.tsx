@@ -35,7 +35,7 @@ export default function ShelfPage() {
   };
 
   return (
-    <div className="pb-4">
+    <div className="pb-4 w-full min-w-0 max-w-full overflow-x-hidden">
       <MemoryShelf polaroids={polaroids} />
       {polaroids.length === 0 && userId && (
         <Button variant="ghost" className="w-full mt-4" onClick={generateRecap}>

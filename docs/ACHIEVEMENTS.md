@@ -16,6 +16,7 @@ This document describes what has been built, how it works end-to-end, what was d
 - No streak pressure, no guilt copy
 - Mood-as-weather visual language
 - Gentle motion (Framer Motion) with reduced-motion support
+- Mobile layout clips horizontal overflow; in-card carousels (mood, polaroids) scroll inside their container only
 - Works **offline-first** via `localStorage` when Supabase anonymous auth is unavailable
 - Optional cloud sync when Supabase anonymous sign-in is enabled
 

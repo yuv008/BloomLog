@@ -23,7 +23,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="mx-auto min-h-screen max-w-lg px-4 pt-6 pb-28">{children}</div>
+      <div className="mx-auto min-h-screen w-full max-w-lg overflow-x-hidden px-4 pt-6 pb-28">
+        {children}
+      </div>
       {profile?.onboarding_complete && <BottomNav />}
     </>
   );

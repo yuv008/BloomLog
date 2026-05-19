@@ -8,14 +8,16 @@ import { useUiStore } from "@/stores/use-ui-store";
 
 export function TinyQuestsCard({
   userId,
+  date,
   completions,
   onComplete,
 }: {
   userId: string;
+  date: string;
   completions: QuestCompletion[];
   onComplete: (questKey: string) => Promise<{ rare: boolean }>;
 }) {
-  const quests = getTodaysQuests(userId);
+  const quests = getTodaysQuests(userId, date);
   const done = new Set(completions.map((c) => c.quest_key));
   const triggerPetal = useUiStore((s) => s.triggerPetalBurst);
   const bloomCount = completions.length;

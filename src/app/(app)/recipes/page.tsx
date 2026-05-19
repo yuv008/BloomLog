@@ -9,7 +9,7 @@ export default function RecipesPage() {
   const isSunday = new Date().getDay() === 0;
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-6 pb-4 w-full min-w-0 max-w-full overflow-x-hidden">
       <div>
         <h1 className="font-display text-2xl text-ink">recipe nook</h1>
         <p className="text-sm text-whisper">15 cozy ideas · no ratings · no comments</p>
@@ -24,7 +24,7 @@ export default function RecipesPage() {
           )}
         >
           <p className="text-xs text-whisper uppercase tracking-wide">this week&apos;s cozy idea</p>
-          <p className="font-display text-2xl text-ink mt-1">
+          <p className="font-display text-2xl text-ink mt-1 break-words">
             {sunday.emoji} {sunday.title}
           </p>
         </Link>
@@ -41,7 +41,7 @@ export default function RecipesPage() {
             )}
           >
             <span className="text-3xl">{r.emoji}</span>
-            <p className="font-display text-base text-ink mt-2">{r.title}</p>
+            <p className="font-display text-base text-ink mt-2 break-words">{r.title}</p>
             <p className="text-xs text-whisper">{r.time}</p>
           </Link>
         ))}

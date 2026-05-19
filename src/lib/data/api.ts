@@ -350,8 +350,8 @@ export async function completeQuest(userId: string, questKey: string, date?: str
   return { completion: q, rare };
 }
 
-export function getTodaysQuests(userId: string) {
-  return pickDailyQuests(userId, todayKey());
+export function getTodaysQuests(userId: string, date?: string) {
+  return pickDailyQuests(userId, date ?? todayKey());
 }
 
 export async function getGardenItems(userId: string): Promise<GardenItem[]> {
@@ -364,7 +364,7 @@ export async function getGardenItems(userId: string): Promise<GardenItem[]> {
       .order("acquired_at", { ascending: true });
     if (!error && data) return data as GardenItem[];
   }
-  return localStore.getGarden();
+  return localStore.getGarden().filter((item) => item.user_id === userId);
 }
 
 export async function addGardenItem(

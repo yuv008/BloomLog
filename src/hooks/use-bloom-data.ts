@@ -79,6 +79,7 @@ export function useGarden(userId: string | null) {
     queryKey: ["garden", userId],
     queryFn: () => (userId ? api.getGardenItems(userId) : []),
     enabled: !!userId,
+    refetchOnWindowFocus: true,
   });
 }
 

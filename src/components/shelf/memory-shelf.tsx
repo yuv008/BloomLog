@@ -5,6 +5,15 @@ import { m, AnimatePresence } from "framer-motion";
 import type { MemoryPolaroid } from "@/lib/types";
 import { useUiStore } from "@/stores/use-ui-store";
 
+function polaroidSummary(payload: Record<string, unknown>, kind: string) {
+  const label = typeof payload.label === "string" ? payload.label : kind.replace(/_/g, " ");
+  const cozyDays = payload.cozy_days;
+  if (typeof cozyDays === "number") {
+    return `${label} · ${cozyDays} gentle day${cozyDays === 1 ? "" : "s"}`;
+  }
+  return label;
+}
+
 export function MemoryShelf({ polaroids }: { polaroids: MemoryPolaroid[] }) {
   const [flipped, setFlipped] = useState<string | null>(null);
   const setViewedShelf = useUiStore((s) => s.setViewedShelf);
@@ -25,9 +34,10 @@ export function MemoryShelf({ polaroids }: { polaroids: MemoryPolaroid[] }) {
   }
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-6 py-4 w-full min-w-0 max-w-full overflow-hidden">
       <p className="font-display text-2xl text-ink px-2">memory shelf</p>
-      <div className="flex gap-4 overflow-x-auto no-scrollbar px-2 pb-8">
+      <div className="w-full max-w-full min-w-0 overflow-x-auto no-scrollbar -mx-2 px-2 pb-8">
+        <div className="flex gap-4 w-max min-w-full">
         {polaroids.map((p, i) => (
           <m.button
             key={p.id}
@@ -46,16 +56,16 @@ export function MemoryShelf({ polaroids }: { polaroids: MemoryPolaroid[] }) {
                 className="rounded-[12px] bg-cream border-4 border-white shadow-lg p-4 min-h-[200px]"
               >
                 {flipped === p.id ? (
-                  <div className="text-sm text-ink space-y-2">
-                    <p className="font-display text-lg">
+                  <div className="text-sm text-ink space-y-2 overflow-hidden">
+                    <p className="font-display text-lg break-words">
                       {(p.payload as { label?: string }).label ?? p.kind}
                     </p>
                     <p className="text-whisper text-xs">
                       {p.period_start} — {p.period_end}
                     </p>
-                    <pre className="text-xs text-whisper whitespace-pre-wrap">
-                      {JSON.stringify(p.payload, null, 2)}
-                    </pre>
+                    <p className="text-xs text-whisper break-words">
+                      {polaroidSummary(p.payload as Record<string, unknown>, p.kind)}
+                    </p>
                   </div>
                 ) : (
                   <div>
@@ -71,6 +81,7 @@ export function MemoryShelf({ polaroids }: { polaroids: MemoryPolaroid[] }) {
             </AnimatePresence>
           </m.button>
         ))}
+        </div>
       </div>
     </div>
   );

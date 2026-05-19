@@ -28,7 +28,8 @@ function TimeDial({
   return (
     <div>
       <p className="text-xs text-whisper mb-2">{label}</p>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <div className="w-full max-w-full min-w-0 overflow-x-auto no-scrollbar">
+        <div className="flex gap-2 w-max min-w-full">
         {hours.map((h) => {
           const t = `${String(h).padStart(2, "0")}:00`;
           return (
@@ -44,6 +45,7 @@ function TimeDial({
             </button>
           );
         })}
+        </div>
       </div>
     </div>
   );

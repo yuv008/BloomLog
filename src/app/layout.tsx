@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${inter.variable} h-full`}>
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
+      <body className="min-h-full w-full overflow-x-hidden flex flex-col bg-background text-foreground font-sans">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

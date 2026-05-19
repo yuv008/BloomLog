@@ -69,7 +69,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8 w-full min-w-0 max-w-full overflow-x-hidden">
       <h1 className="font-display text-2xl text-ink">settings</h1>
 
       <section className="glass-card p-5 space-y-4">
@@ -101,7 +101,7 @@ export default function SettingsPage() {
             onChange={async (e) => {
               await update({ currency: normalizeCurrency(e.target.value) });
             }}
-            className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-sm text-ink"
+            className="w-full max-w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-sm text-ink"
           >
             {CURRENCY_OPTIONS.map((c) => (
               <option key={c.code} value={c.code}>
@@ -118,7 +118,7 @@ export default function SettingsPage() {
               await update({ timezone: e.target.value });
               invalidateDateQueries();
             }}
-            className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-sm text-ink"
+            className="w-full max-w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-sm text-ink"
           >
             {tzOptions.map((z) => (
               <option key={z.id} value={z.id}>

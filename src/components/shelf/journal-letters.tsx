@@ -68,19 +68,19 @@ export function JournalLetters({
   };
 
   return (
-    <section className="mt-10 pt-8 border-t border-beige/50">
+    <section className="mt-10 pt-8 border-t border-beige/50 w-full min-w-0 max-w-full overflow-hidden">
       <m.div
-        className="flex items-start justify-between gap-4 mb-4"
+        className="flex items-start justify-between gap-4 mb-4 min-w-0"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div>
-          <h2 className="font-display text-2xl text-ink">letters to yourself</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-2xl text-ink break-words">letters to yourself</h2>
           <p className="text-sm text-whisper mt-1">
             write when you have more than a line. no schedule.
           </p>
         </div>
-        <Button size="sm" variant="blush" onClick={() => setComposeOpen(true)}>
+        <Button size="sm" variant="blush" className="shrink-0" onClick={() => setComposeOpen(true)}>
           + new letter
         </Button>
       </m.div>
@@ -111,7 +111,7 @@ export function JournalLetters({
                 <button
                   type="button"
                   onClick={() => setReadLetter(letter)}
-                  className="w-full text-left rounded-[12px] bg-cream border-4 border-white shadow-md p-4 min-h-[100px] hover:shadow-lg transition-shadow"
+                  className="w-full max-w-full text-left rounded-[12px] bg-cream border-4 border-white shadow-md p-4 min-h-[100px] hover:shadow-lg transition-shadow overflow-hidden"
                   style={{ rotate: i % 2 === 0 ? "-1deg" : "1deg" }}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">

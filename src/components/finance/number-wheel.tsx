@@ -17,26 +17,28 @@ export function NumberWheel({
   const { currency } = useUserPreferences();
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 min-w-0 max-w-full">
       <p className="text-center font-display text-3xl text-ink tabular-nums">
         {formatMoney(value, currency)}
       </p>
       <div
         ref={ref}
-        className="flex gap-2 overflow-x-auto no-scrollbar py-2 snap-x"
+        className="w-full max-w-full min-w-0 overflow-x-auto no-scrollbar py-2 snap-x"
       >
-        {PRESETS.map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onChange(n)}
-            className={`snap-center shrink-0 rounded-[20px] px-5 py-3 text-sm transition-colors ${
-              value === n ? "bg-sage text-cream" : "bg-beige/50 text-ink"
-            }`}
-          >
-            {formatMoney(n, currency)}
-          </button>
-        ))}
+        <div className="flex gap-2 w-max min-w-full">
+          {PRESETS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onChange(n)}
+              className={`snap-center shrink-0 rounded-[20px] px-5 py-3 text-sm transition-colors ${
+                value === n ? "bg-sage text-cream" : "bg-beige/50 text-ink"
+              }`}
+            >
+              {formatMoney(n, currency)}
+            </button>
+          ))}
+        </div>
       </div>
       <input
         type="range"

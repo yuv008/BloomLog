@@ -7,7 +7,7 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("glass-card p-5 md:p-6", className)}
+      className={cn("glass-card min-w-0 max-w-full p-5 md:p-6", className)}
       {...props}
     >
       {children}

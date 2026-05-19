@@ -21,7 +21,7 @@ export function Sheet({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/20 backdrop-blur-sm" />
         <Dialog.Content
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-[28px] glass-card p-6 pb-10",
+            "fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-lg max-h-[85vh] overflow-x-hidden overflow-y-auto rounded-t-[28px] glass-card p-6 pb-10",
             "data-[state=open]:animate-in data-[state=closed]:animate-out"
           )}
         >

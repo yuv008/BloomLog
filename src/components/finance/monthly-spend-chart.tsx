@@ -79,21 +79,21 @@ export function MonthlySpendPanel({ expenses }: { expenses: Expense[] }) {
       exit={{ opacity: 0, height: 0 }}
     >
       <p className="text-xs text-whisper w-full text-center">{month}</p>
-      <div className="flex flex-col sm:flex-row items-center gap-5 w-full">
+      <div className="flex flex-col sm:flex-row items-center gap-5 w-full min-w-0 max-w-full">
         <DonutChart slices={rows} total={total} currency={currency} />
-        <ul className="flex-1 w-full space-y-1.5">
+        <ul className="flex-1 w-full min-w-0 space-y-1.5">
           {rows.map((row) => {
             const pct = Math.round((row.amount / total) * 100);
             return (
-              <li key={row.category} className="flex items-center gap-2 text-sm">
+              <li key={row.category} className="flex items-center gap-2 text-sm min-w-0">
                 <span
                   className="h-2.5 w-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: row.color }}
                 />
-                <span className="text-base leading-none">{row.emoji}</span>
-                <span className="flex-1 text-ink">{row.label}</span>
-                <span className="text-whisper tabular-nums text-xs">{pct}%</span>
-                <span className="text-ink tabular-nums text-xs w-16 text-right">
+                <span className="text-base leading-none shrink-0">{row.emoji}</span>
+                <span className="flex-1 min-w-0 truncate text-ink">{row.label}</span>
+                <span className="text-whisper tabular-nums text-xs shrink-0">{pct}%</span>
+                <span className="text-ink tabular-nums text-xs shrink-0 text-right">
                   {formatMoney(row.amount, currency, { compact: true })}
                 </span>
               </li>

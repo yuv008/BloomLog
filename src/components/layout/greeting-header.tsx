@@ -9,8 +9,8 @@ export function GreetingHeader({ name }: { name?: string | null }) {
   const { timezone } = useUserPreferences();
 
   return (
-    <header className="flex items-start justify-between px-1 py-2">
-      <div>
+    <header className="flex items-start justify-between gap-2 px-1 py-2 min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="font-display text-2xl text-ink capitalize">
           {timeGreeting(name, timezone)}
         </p>
@@ -18,7 +18,7 @@ export function GreetingHeader({ name }: { name?: string | null }) {
       </div>
       <Link
         href="/settings"
-        className="rounded-full p-2 text-whisper hover:bg-beige/40 transition-colors"
+        className="shrink-0 rounded-full p-2 text-whisper hover:bg-beige/40 transition-colors"
         aria-label="settings"
       >
         <Settings className="h-5 w-5" strokeWidth={1.5} />

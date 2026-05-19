@@ -76,7 +76,7 @@ export default function DashboardPage() {
       <MoodSkyBackground mood={mood} />
       <PetalBurst show={showPetals} onDone={clearPetals} />
 
-      <div className="space-y-5 relative z-10">
+      <div className="space-y-5 relative z-10 w-full min-w-0 max-w-full overflow-x-hidden">
         <WhisperCard text={whisperText ?? ""} show={showWhisper} onDismiss={dismiss} />
         <GreetingHeader name={profile?.display_name} />
 
@@ -132,6 +132,7 @@ export default function DashboardPage() {
 
         <TinyQuestsCard
           userId={userId}
+          date={date}
           completions={quests}
           onComplete={async (key) => {
             const result = await api.completeQuest(userId, key, date);
