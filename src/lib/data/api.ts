@@ -3,6 +3,7 @@
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { localStore, getOrCreateGuestId } from "@/lib/storage/local";
 import { todayKey } from "@/lib/dates";
+import { ensureAuth, shouldUseSupabase, isLocalUserId } from "@/lib/data/auth";
 import type {
   DailyEntry,
   Expense,
@@ -25,28 +26,26 @@ function uid() {
   return crypto.randomUUID();
 }
 
-export async function ensureAuth(): Promise<string> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase.auth.getUser();
-    if (data.user) return data.user.id;
-    const { data: anon } = await supabase.auth.signInAnonymously();
-    if (anon.user) return anon.user.id;
-  }
-  return getOrCreateGuestId();
+export { ensureAuth, shouldUseSupabase, isLocalUserId };
+
+export async function ensureAuthUserId(): Promise<string> {
+  const session = await ensureAuth();
+  return session.userId;
 }
 
 export async function getProfile(userId: string): Promise<UserProfile | null> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("users_profile")
       .select("*")
       .eq("id", userId)
       .maybeSingle();
-    if (data) return data as UserProfile;
+    if (!error && data) return data as UserProfile;
   }
-  return localStore.getProfile();
+  const local = localStore.getProfile();
+  if (local && (local.id === userId || isLocalUserId(userId))) return local;
+  return null;
 }
 
 export async function upsertProfile(
@@ -64,12 +63,15 @@ export async function upsertProfile(
     created_at: new Date().toISOString(),
   };
   const merged = { ...existing, ...patch, id: userId };
-  const supabase = createClient();
-  if (supabase) {
-    await supabase.from("users_profile").upsert(merged);
-  } else {
-    localStore.setProfile(merged);
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("users_profile").upsert(merged);
+    if (error) console.warn("[bloomlog] profile upsert:", error.message);
+    else return merged;
   }
+
+  localStore.setProfile(merged);
   return merged;
 }
 
@@ -77,18 +79,19 @@ export async function getDailyEntry(
   userId: string,
   date = todayKey()
 ): Promise<DailyEntry | null> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("daily_entries")
       .select("*")
       .eq("user_id", userId)
       .eq("date", date)
       .maybeSingle();
-    if (data) return data as DailyEntry;
+    if (!error && data) return data as DailyEntry;
   }
   const local = localStore.getDaily(date);
-  return local?.user_id === userId ? local : localStore.getDaily(date);
+  if (!local) return null;
+  return local.user_id === userId || isLocalUserId(userId) ? local : null;
 }
 
 export async function upsertDailyEntry(
@@ -109,12 +112,15 @@ export async function upsertDailyEntry(
     created_at: new Date().toISOString(),
   };
   const merged = { ...existing, ...patch, user_id: userId, date };
-  const supabase = createClient();
-  if (supabase) {
-    await supabase.from("daily_entries").upsert(merged);
-  } else {
-    localStore.setDaily(merged);
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("daily_entries").upsert(merged);
+    if (!error) return merged;
+    console.warn("[bloomlog] daily upsert:", error.message);
   }
+
+  localStore.setDaily(merged);
   return merged;
 }
 
@@ -145,15 +151,15 @@ export async function getExpenses(
   userId: string,
   date = todayKey()
 ): Promise<Expense[]> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("expenses")
       .select("*")
       .eq("user_id", userId)
       .eq("date", date)
       .order("created_at", { ascending: true });
-    return (data as Expense[]) ?? [];
+    if (!error && data) return data as Expense[];
   }
   return localStore.getExpenses(date);
 }
@@ -173,25 +179,28 @@ export async function addExpense(
     note: note ?? null,
     created_at: new Date().toISOString(),
   };
-  const supabase = createClient();
-  if (supabase) {
-    await supabase.from("expenses").insert(expense);
-  } else {
-    localStore.addExpense(expense);
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("expenses").insert(expense);
+    if (!error) return expense;
+    console.warn("[bloomlog] expense insert:", error.message);
   }
+
+  localStore.addExpense(expense);
   return expense;
 }
 
 export async function getMeals(userId: string, date = todayKey()): Promise<Meal[]> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("meals")
       .select("*")
       .eq("user_id", userId)
       .eq("date", date)
       .order("meal_time", { ascending: true });
-    return (data as Meal[]) ?? [];
+    if (!error && data) return data as Meal[];
   }
   return localStore.getMeals(date);
 }
@@ -209,12 +218,15 @@ export async function addMeal(
     photo_url: photo_url ?? null,
     tags,
   };
-  const supabase = createClient();
-  if (supabase) {
-    await supabase.from("meals").insert(meal);
-  } else {
-    localStore.addMeal(meal);
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("meals").insert(meal);
+    if (!error) return meal;
+    console.warn("[bloomlog] meal insert:", error.message);
   }
+
+  localStore.addMeal(meal);
   return meal;
 }
 
@@ -222,14 +234,14 @@ export async function getQuestCompletions(
   userId: string,
   date = todayKey()
 ): Promise<QuestCompletion[]> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("quest_completions")
       .select("*")
       .eq("user_id", userId)
       .eq("date", date);
-    return (data as QuestCompletion[]) ?? [];
+    if (!error && data) return data as QuestCompletion[];
   }
   return localStore.getQuests(date);
 }
@@ -242,15 +254,29 @@ export async function completeQuest(userId: string, questKey: string) {
     date,
     quest_key: questKey,
   };
-  const supabase = createClient();
-  if (supabase) {
-    await supabase.from("quest_completions").upsert(q, {
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("quest_completions").upsert(q, {
       onConflict: "user_id,date,quest_key",
     });
-  } else {
-    localStore.addQuest(q);
+    if (error) console.warn("[bloomlog] quest upsert:", error.message);
+    else {
+      const rare = isRareSeedRoll(userId, date, questKey);
+      const seed = Math.abs(
+        questKey.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
+      );
+      const itemDef = randomGardenReward(seed, rare);
+      await addGardenItem(userId, itemDef.key, {
+        x: 20 + (seed % 60),
+        y: 30 + (seed % 40),
+        layer: rare ? 2 : 1,
+      });
+      return { completion: q, rare };
+    }
   }
 
+  localStore.addQuest(q);
   const rare = isRareSeedRoll(userId, date, questKey);
   const seed = Math.abs(questKey.split("").reduce((a, c) => a + c.charCodeAt(0), 0));
   const itemDef = randomGardenReward(seed, rare);
@@ -267,14 +293,14 @@ export function getTodaysQuests(userId: string) {
 }
 
 export async function getGardenItems(userId: string): Promise<GardenItem[]> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("garden_items")
       .select("*")
       .eq("user_id", userId)
       .order("acquired_at", { ascending: true });
-    return (data as GardenItem[]) ?? [];
+    if (!error && data) return data as GardenItem[];
   }
   return localStore.getGarden();
 }
@@ -292,24 +318,27 @@ export async function addGardenItem(
     position,
     bloom_stage: 0,
   };
-  const supabase = createClient();
-  if (supabase) {
-    await supabase.from("garden_items").insert(item);
-  } else {
-    localStore.addGardenItem(item);
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("garden_items").insert(item);
+    if (!error) return item;
+    console.warn("[bloomlog] garden insert:", error.message);
   }
+
+  localStore.addGardenItem(item);
   return item;
 }
 
 export async function getPolaroids(userId: string): Promise<MemoryPolaroid[]> {
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("memory_polaroids")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-    return (data as MemoryPolaroid[]) ?? [];
+    if (!error && data) return data as MemoryPolaroid[];
   }
   return localStore.getPolaroids();
 }
@@ -321,37 +350,37 @@ export async function logWhisper(userId: string, whisperKey: string) {
     whisper_key: whisperKey,
     shown_at: new Date().toISOString(),
   };
-  const supabase = createClient();
-  if (supabase) {
-    await supabase.from("whispers_log").insert(w);
-  } else {
-    localStore.addWhisper(w);
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("whispers_log").insert(w);
+    if (!error) return w;
+    console.warn("[bloomlog] whisper insert:", error.message);
   }
+
+  localStore.addWhisper(w);
   return w;
 }
 
 export async function getWhispersToday(userId: string): Promise<WhisperLog[]> {
   const today = todayKey();
-  const supabase = createClient();
-  if (supabase) {
-    const { data } = await supabase
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
       .from("whispers_log")
       .select("*")
       .eq("user_id", userId)
       .gte("shown_at", `${today}T00:00:00`);
-    return (data as WhisperLog[]) ?? [];
+    if (!error && data) return data as WhisperLog[];
   }
-  return localStore
-    .getWhispers()
-    .filter((w) => w.shown_at.startsWith(today));
+  return localStore.getWhispers().filter((w) => w.shown_at.startsWith(today));
 }
 
 export async function exportUserData(userId: string) {
-  if (!isSupabaseConfigured()) {
+  if (!shouldUseSupabase(userId)) {
     return localStore.exportAll();
   }
-  const supabase = createClient();
-  if (!supabase) return localStore.exportAll();
+  const supabase = createClient()!;
   const [profile, daily, expenses, meals, quests, garden, polaroids, whispers] =
     await Promise.all([
       getProfile(userId),
@@ -376,8 +405,8 @@ export async function exportUserData(userId: string) {
 }
 
 export async function deleteAllUserData(userId: string) {
-  const supabase = createClient();
-  if (supabase) {
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
     await Promise.all([
       supabase.from("whispers_log").delete().eq("user_id", userId),
       supabase.from("memory_polaroids").delete().eq("user_id", userId),

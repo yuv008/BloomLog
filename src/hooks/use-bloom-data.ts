@@ -8,7 +8,7 @@ import { todayKey } from "@/lib/dates";
 export function useUserId() {
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
-    api.ensureAuth().then(setUserId);
+    api.ensureAuth().then((session) => setUserId(session.userId));
   }, []);
   return userId;
 }

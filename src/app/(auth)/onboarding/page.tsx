@@ -23,7 +23,7 @@ export default function OnboardingPage() {
 
   const finish = async () => {
     setLoading(true);
-    const userId = await api.ensureAuth();
+    const { userId } = await api.ensureAuth();
     await api.upsertProfile(userId, {
       display_name: name.trim() || null,
       room_theme: room,

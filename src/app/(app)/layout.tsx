@@ -13,7 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading || !userId) return;
-    if (profile && !profile.onboarding_complete && !pathname.startsWith("/onboarding")) {
+    if (!profile?.onboarding_complete && !pathname.startsWith("/onboarding")) {
       router.replace("/onboarding");
     }
     if (profile?.onboarding_complete && pathname.startsWith("/onboarding")) {
