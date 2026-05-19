@@ -41,12 +41,27 @@ See [`.cursor/PLUGINS.md`](.cursor/PLUGINS.md) for project scoping and security 
 
 ## Deploy (Vercel)
 
+**Production:** https://bloomlog-six.vercel.app  
+**GitHub:** https://github.com/yuv008/BloomLog
+
 ```bash
-npm run vercel:link   # first time
 npm run vercel:deploy:prod
 ```
 
-Set environment variables in the Vercel dashboard (or via Vercel MCP). PWA builds automatically in production.
+Env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_APP_URL`) are set on Vercel for Production.
+
+### One-time Supabase Auth setup (required)
+
+1. **Enable anonymous sign-ins:**  
+   https://supabase.com/dashboard/project/curzpvrglfdlujvffvex/auth/providers  
+   Turn on **Anonymous sign-ins**.
+
+2. **Add redirect URLs:**  
+   https://supabase.com/dashboard/project/curzpvrglfdlujvffvex/auth/url-configuration  
+   - `https://bloomlog-six.vercel.app/**`  
+   - `http://localhost:3000/**`
+
+PWA builds automatically in production.
 
 ## Alpha study
 
