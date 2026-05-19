@@ -127,6 +127,7 @@ Wrapped by `(app)/layout.tsx`: max-width mobile shell, bottom nav when onboardin
 - Polaroid stack UI for `memory_polaroids`
 - “Preview a cozy polaroid” button seeds a sample `cozy_week` recap locally
 - Supabase Edge Function `weekly_recap` exists for server-side recap generation (not fully wired to a one-tap UI in all environments)
+- **Letters to yourself** — optional journaling section below polaroids: multiple dated entries (`journal_letters` table + `localStorage` `letters` key), compose/read bottom sheets, mood snapshot from today’s daily entry on save, export/delete-all included. Separate from Today’s one-line `daily_entries.note`.
 
 ### 4.4 Recipe nook (`/recipes`)
 

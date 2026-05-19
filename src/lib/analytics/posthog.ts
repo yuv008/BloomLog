@@ -9,6 +9,7 @@ const ALLOWED_EVENTS = [
   "meal_logged",
   "onboarding_complete",
   "app_opened",
+  "journal_written",
 ] as const;
 
 export type AllowedEvent = (typeof ALLOWED_EVENTS)[number];

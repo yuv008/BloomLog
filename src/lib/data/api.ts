@@ -13,6 +13,7 @@ import type {
   QuestCompletion,
   UserProfile,
   WhisperLog,
+  JournalLetter,
   Mood,
   ExpenseCategory,
   FoodTag,
@@ -389,6 +390,58 @@ export async function logWhisper(userId: string, whisperKey: string) {
   return w;
 }
 
+export async function getJournalLetters(userId: string): Promise<JournalLetter[]> {
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
+      .from("journal_letters")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (!error && data) return data as JournalLetter[];
+  }
+  const local = localStore.getJournalLetters();
+  if (isLocalUserId(userId)) return local;
+  return local.filter((l) => l.user_id === userId);
+}
+
+export async function addJournalLetter(userId: string, body: string) {
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("letter body required");
+
+  const daily = await getDailyEntry(userId);
+  const letter: JournalLetter = {
+    id: uid(),
+    user_id: userId,
+    body: trimmed,
+    mood_snapshot: daily?.mood ?? null,
+    created_at: new Date().toISOString(),
+  };
+
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase.from("journal_letters").insert(letter);
+    if (!error) return letter;
+    console.warn("[bloomlog] journal insert:", error.message);
+  }
+
+  localStore.addJournalLetter(letter);
+  return letter;
+}
+
+export async function deleteJournalLetter(userId: string, letterId: string) {
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { error } = await supabase
+      .from("journal_letters")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", letterId);
+    if (error) console.warn("[bloomlog] journal delete:", error.message);
+  }
+  localStore.removeJournalLetter(letterId);
+}
+
 export async function getWhispersToday(userId: string): Promise<WhisperLog[]> {
   const today = todayKey();
   if (shouldUseSupabase(userId)) {
@@ -408,7 +461,7 @@ export async function exportUserData(userId: string) {
     return localStore.exportAll();
   }
   const supabase = createClient()!;
-  const [profile, daily, expenses, meals, quests, garden, polaroids, whispers] =
+  const [profile, daily, expenses, meals, quests, garden, polaroids, whispers, letters] =
     await Promise.all([
       getProfile(userId),
       supabase.from("daily_entries").select("*").eq("user_id", userId),
@@ -418,6 +471,7 @@ export async function exportUserData(userId: string) {
       getGardenItems(userId),
       getPolaroids(userId),
       supabase.from("whispers_log").select("*").eq("user_id", userId),
+      getJournalLetters(userId),
     ]);
   return {
     profile,
@@ -428,6 +482,7 @@ export async function exportUserData(userId: string) {
     garden,
     polaroids,
     whispers: whispers.data,
+    letters,
   };
 }
 
@@ -435,6 +490,7 @@ export async function deleteAllUserData(userId: string) {
   if (shouldUseSupabase(userId)) {
     const supabase = createClient()!;
     await Promise.all([
+      supabase.from("journal_letters").delete().eq("user_id", userId),
       supabase.from("whispers_log").delete().eq("user_id", userId),
       supabase.from("memory_polaroids").delete().eq("user_id", userId),
       supabase.from("garden_items").delete().eq("user_id", userId),

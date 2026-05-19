@@ -82,6 +82,14 @@ export function usePolaroids(userId: string | null) {
   });
 }
 
+export function useJournalLetters(userId: string | null) {
+  return useQuery({
+    queryKey: ["journal", userId],
+    queryFn: () => (userId ? api.getJournalLetters(userId) : []),
+    enabled: !!userId,
+  });
+}
+
 export function useInvalidateDaily() {
   const qc = useQueryClient();
   const date = todayKey();

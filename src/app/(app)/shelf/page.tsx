@@ -1,13 +1,15 @@
 "use client";
 
 import { MemoryShelf } from "@/components/shelf/memory-shelf";
-import { useUserId, usePolaroids } from "@/hooks/use-bloom-data";
+import { JournalLetters } from "@/components/shelf/journal-letters";
+import { useUserId, usePolaroids, useJournalLetters } from "@/hooks/use-bloom-data";
 import { Button } from "@/components/primitives/button";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function ShelfPage() {
   const userId = useUserId();
   const { data: polaroids = [] } = usePolaroids(userId);
+  const { data: letters = [] } = useJournalLetters(userId);
   const qc = useQueryClient();
 
   const generateRecap = async () => {
@@ -28,13 +30,20 @@ export default function ShelfPage() {
     qc.invalidateQueries({ queryKey: ["polaroids", userId] });
   };
 
+  const refreshJournal = () => {
+    if (userId) qc.invalidateQueries({ queryKey: ["journal", userId] });
+  };
+
   return (
-    <div>
+    <div className="pb-4">
       <MemoryShelf polaroids={polaroids} />
       {polaroids.length === 0 && userId && (
         <Button variant="ghost" className="w-full mt-4" onClick={generateRecap}>
           preview a cozy polaroid
         </Button>
+      )}
+      {userId && (
+        <JournalLetters userId={userId} letters={letters} onChanged={refreshJournal} />
       )}
     </div>
   );

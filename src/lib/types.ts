@@ -101,3 +101,11 @@ export interface WhisperLog {
   whisper_key: string;
   shown_at: string;
 }
+
+export interface JournalLetter {
+  id: string;
+  user_id: string;
+  body: string;
+  mood_snapshot: Mood | null;
+  created_at: string;
+}

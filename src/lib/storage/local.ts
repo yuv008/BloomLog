@@ -4,6 +4,7 @@ import type {
   DailyEntry,
   Expense,
   GardenItem,
+  JournalLetter,
   Meal,
   MemoryPolaroid,
   QuestCompletion,
@@ -119,6 +120,23 @@ export const localStore = {
     const list = read<WhisperLog[]>("whispers", []);
     write("whispers", [...list, w]);
   },
+  getJournalLetters(): JournalLetter[] {
+    const list = read<JournalLetter[]>("letters", []);
+    return [...list].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  },
+  addJournalLetter(letter: JournalLetter) {
+    const list = read<JournalLetter[]>("letters", []);
+    write("letters", [letter, ...list]);
+  },
+  removeJournalLetter(id: string) {
+    const list = read<JournalLetter[]>("letters", []);
+    write(
+      "letters",
+      list.filter((l) => l.id !== id)
+    );
+  },
   exportAll() {
     return {
       profile: read("profile", null),
@@ -129,6 +147,7 @@ export const localStore = {
       garden: read("garden", []),
       polaroids: read("polaroids", []),
       whispers: read("whispers", []),
+      letters: read("letters", []),
     };
   },
   clearAll() {
