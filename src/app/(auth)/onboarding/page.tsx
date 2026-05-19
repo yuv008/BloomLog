@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/primitives/button";
 import * as api from "@/lib/data/api";
@@ -16,6 +17,7 @@ const ROOMS: { id: RoomTheme; label: string; emoji: string }[] = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [room, setRoom] = useState<RoomTheme>("windowsill");
@@ -24,11 +26,13 @@ export default function OnboardingPage() {
   const finish = async () => {
     setLoading(true);
     const { userId } = await api.ensureAuth();
-    await api.upsertProfile(userId, {
+    const profile = await api.upsertProfile(userId, {
       display_name: name.trim() || null,
       room_theme: room,
       onboarding_complete: true,
     });
+    qc.setQueryData(["profile", userId], profile);
+    await qc.invalidateQueries({ queryKey: ["profile", userId] });
     trackEvent("onboarding_complete");
     router.replace("/dashboard");
   };

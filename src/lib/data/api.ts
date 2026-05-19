@@ -44,7 +44,9 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
     if (!error && data) return data as UserProfile;
   }
   const local = localStore.getProfile();
-  if (local && (local.id === userId || isLocalUserId(userId))) return local;
+  if (!local) return null;
+  if (local.id === userId || isLocalUserId(userId)) return local;
+  if (local.onboarding_complete) return { ...local, id: userId };
   return null;
 }
 
@@ -91,7 +93,11 @@ export async function getDailyEntry(
   }
   const local = localStore.getDaily(date);
   if (!local) return null;
-  return local.user_id === userId || isLocalUserId(userId) ? local : null;
+  if (local.user_id === userId || isLocalUserId(userId)) return local;
+  if (isLocalUserId(local.user_id)) {
+    return { ...local, user_id: userId };
+  }
+  return null;
 }
 
 export async function upsertDailyEntry(

@@ -19,6 +19,7 @@ import {
   useMeals,
   useQuests,
   useInvalidateDaily,
+  usePatchDailyCache,
 } from "@/hooks/use-bloom-data";
 import { useWhisper } from "@/hooks/use-whisper";
 import { useUiStore } from "@/stores/use-ui-store";
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const { data: meals = [] } = useMeals(userId);
   const { data: quests = [] } = useQuests(userId);
   const invalidate = useInvalidateDaily();
+  const patchDaily = usePatchDailyCache();
   const showPetals = useUiStore((s) => s.showPetalBurst);
   const clearPetals = useUiStore((s) => s.clearPetalBurst);
 
@@ -49,10 +51,11 @@ export default function DashboardPage() {
 
   const refresh = useCallback(() => {
     if (userId) {
-      qc.invalidateQueries({ queryKey: ["daily", userId, todayKey()] });
-      qc.invalidateQueries({ queryKey: ["expenses", userId] });
-      qc.invalidateQueries({ queryKey: ["meals", userId] });
-      qc.invalidateQueries({ queryKey: ["quests", userId] });
+      const date = todayKey();
+      qc.invalidateQueries({ queryKey: ["daily", userId, date] });
+      qc.invalidateQueries({ queryKey: ["expenses", userId, date] });
+      qc.invalidateQueries({ queryKey: ["meals", userId, date] });
+      qc.invalidateQueries({ queryKey: ["quests", userId, date] });
     }
   }, [userId, qc]);
 
@@ -76,7 +79,8 @@ export default function DashboardPage() {
         <MoodCarousel
           value={mood}
           onChange={async (m: Mood) => {
-            await api.setMood(userId, m);
+            const entry = await api.setMood(userId, m);
+            patchDaily(userId, entry);
             trackEvent("mood_set", { mood: m });
             refresh();
           }}
@@ -85,9 +89,9 @@ export default function DashboardPage() {
         <WaterBottleCard
           waterMl={daily?.water_ml ?? 0}
           onAdd={async (ml) => {
-            await api.addWater(userId, ml);
+            const entry = await api.addWater(userId, ml);
+            patchDaily(userId, entry);
             trackEvent("water_added", { ml });
-            invalidate(userId);
           }}
         />
 

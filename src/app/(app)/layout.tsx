@@ -9,10 +9,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const userId = useUserId();
-  const { data: profile, isLoading } = useProfile(userId);
+  const { data: profile, isLoading, isFetched } = useProfile(userId);
 
   useEffect(() => {
-    if (isLoading || !userId) return;
+    if (isLoading || !userId || !isFetched) return;
     if (!profile?.onboarding_complete && !pathname.startsWith("/onboarding")) {
       router.replace("/onboarding");
     }

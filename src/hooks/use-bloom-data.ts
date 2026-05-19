@@ -81,3 +81,18 @@ export function useInvalidateDaily() {
     qc.invalidateQueries({ queryKey: ["garden", userId] });
   };
 }
+
+export function usePatchDailyCache() {
+  const qc = useQueryClient();
+  const date = todayKey();
+  return (userId: string, entry: Awaited<ReturnType<typeof api.getDailyEntry>>) => {
+    qc.setQueryData(["daily", userId, date], entry);
+  };
+}
+
+export function usePatchProfileCache() {
+  const qc = useQueryClient();
+  return (userId: string, profile: Awaited<ReturnType<typeof api.getProfile>>) => {
+    qc.setQueryData(["profile", userId], profile);
+  };
+}
