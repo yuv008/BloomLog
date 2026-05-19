@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pickWhisper } from "@/lib/whispers/picker";
 import { WHISPER_LIBRARY } from "@/lib/whispers/library";
 import { logWhisper, getWhispersToday } from "@/lib/data/api";
@@ -14,15 +14,19 @@ export function useWhisper(
   questsCompleted: number
 ) {
   const [text, setText] = useState<string | null>(null);
-  const sessionCount = useUiStore((s) => s.sessionCount);
   const viewedShelf = useUiStore((s) => s.viewedShelf);
+  const sessionCount = useUiStore((s) => s.sessionCount);
   const activeWhisper = useUiStore((s) => s.activeWhisper);
   const setActiveWhisper = useUiStore((s) => s.setActiveWhisper);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!userId || activeWhisper) return;
+    if (!userId || fetchedRef.current || activeWhisper) return;
+    fetchedRef.current = true;
 
     getWhispersToday(userId).then(async (shown) => {
+      if (shown.length >= 1) return;
+
       const whisper = pickWhisper({
         mood,
         waterMl,
@@ -32,8 +36,10 @@ export function useWhisper(
         sessionCount,
       });
       if (!whisper) return;
+
       const entry = WHISPER_LIBRARY.find((w) => w.key === whisper.key);
       if (!entry) return;
+
       await logWhisper(userId, entry.key);
       setText(entry.text);
       setActiveWhisper(entry.key);
@@ -51,7 +57,6 @@ export function useWhisper(
 
   const dismiss = () => {
     setText(null);
-    setActiveWhisper(null);
   };
 
   return { text, show: !!text, dismiss };

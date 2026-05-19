@@ -20,21 +20,22 @@ export function WhisperCard({
   }, [show, onDismiss]);
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {show && (
         <m.div
+          key={text}
           variants={slideDown}
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="fixed top-4 left-4 right-4 z-[90] mx-auto max-w-md"
+          className="w-full"
         >
           <button
             type="button"
             onClick={onDismiss}
-            className="w-full rounded-[20px] bg-cream/95 border border-beige px-5 py-4 text-center shadow-lg backdrop-blur-md"
+            className="w-full rounded-[20px] bg-cream/95 border border-beige px-4 py-3 text-center shadow-sm backdrop-blur-md"
           >
-            <p className="font-display text-base text-ink lowercase">{text}</p>
+            <p className="font-display text-sm text-ink lowercase leading-snug">{text}</p>
           </button>
         </m.div>
       )}

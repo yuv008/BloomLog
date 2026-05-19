@@ -1,33 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import { m } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import { Card } from "@/components/primitives/card";
 import { Button } from "@/components/primitives/button";
 import { Sheet } from "@/components/primitives/sheet";
 import { EXPENSE_CATEGORIES } from "@/lib/finance/categories";
+import { aggregateExpensesByCategory } from "@/lib/finance/monthly";
+import { MonthlySpendPanel } from "@/components/finance/monthly-spend-chart";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 import { NumberWheel } from "./number-wheel";
 
 export function SpendBubblesCard({
   expenses,
+  monthlyExpenses,
   onAdd,
 }: {
   expenses: Expense[];
+  monthlyExpenses: Expense[];
   onAdd: (category: ExpenseCategory, amount: number) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const [monthOpen, setMonthOpen] = useState(false);
   const [category, setCategory] = useState<ExpenseCategory | null>(null);
   const [amount, setAmount] = useState(200);
   const [selected, setSelected] = useState<Expense | null>(null);
-  const total = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const todayTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const monthRows = aggregateExpensesByCategory(monthlyExpenses);
+  const monthTotal = monthRows.reduce((s, r) => s + r.amount, 0);
 
   return (
     <>
       <Card>
         <p className="font-display text-lg text-ink">where money went today</p>
-        <p className="text-xs text-whisper mb-3 tabular-nums">₹{total.toFixed(0)} total · no judgment</p>
-        <div className="relative min-h-[140px] rounded-[20px] bg-beige/20 p-3 overflow-hidden">
+        <p className="text-xs text-whisper mb-3 tabular-nums">
+          ₹{todayTotal.toFixed(0)} today · no judgment
+        </p>
+        <m.div className="relative min-h-[140px] rounded-[20px] bg-beige/20 p-3 overflow-hidden">
           {expenses.length === 0 ? (
             <p className="text-sm text-whisper text-center py-10">tap + to log a soft spend</p>
           ) : (
@@ -55,10 +65,51 @@ export function SpendBubblesCard({
               );
             })
           )}
-        </div>
+        </m.div>
         <Button variant="blush" className="w-full mt-4" onClick={() => setOpen(true)}>
           + log spend
         </Button>
+
+        <div className="mt-5 pt-4 border-t border-beige/50">
+          <button
+            type="button"
+            onClick={() => setMonthOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 text-left rounded-[16px] px-1 py-1 -mx-1 hover:bg-beige/20 transition-colors"
+            aria-expanded={monthOpen}
+          >
+            <div>
+              <p className="font-display text-base text-ink">this month, softly</p>
+              <p className="text-xs text-whisper mt-0.5">
+                {monthTotal > 0
+                  ? `₹${monthTotal.toFixed(0)} across ${monthRows.length} ${monthRows.length === 1 ? "place" : "places"}`
+                  : "peek at your month shape"}
+              </p>
+            </div>
+            <m.span
+              animate={{ rotate: monthOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="text-whisper shrink-0"
+            >
+              <ChevronDown className="h-5 w-5" strokeWidth={1.5} />
+            </m.span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {monthOpen && (
+              <m.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="pt-4">
+                  <MonthlySpendPanel expenses={monthlyExpenses} />
+                </div>
+              </m.div>
+            )}
+          </AnimatePresence>
+        </div>
       </Card>
 
       <Sheet open={open} onOpenChange={setOpen} title="mindful spend">

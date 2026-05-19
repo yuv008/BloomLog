@@ -6,7 +6,6 @@ import { MoodSkyBackground, MoodCarousel } from "@/components/mood/mood-sky";
 import { GreetingHeader } from "@/components/layout/greeting-header";
 import { WaterBottleCard } from "@/components/water/water-bottle";
 import { SpendBubblesCard } from "@/components/finance/spend-bubbles";
-import { MonthlySpendChart } from "@/components/finance/monthly-spend-chart";
 import { MealTimelineCard } from "@/components/food/meal-timeline";
 import { TinyQuestsCard } from "@/components/quests/tiny-quests";
 import { SleepTrackerCard } from "@/components/sleep/sleep-tracker";
@@ -74,10 +73,10 @@ export default function DashboardPage() {
   return (
     <>
       <MoodSkyBackground mood={mood} />
-      <WhisperCard text={whisperText ?? ""} show={showWhisper} onDismiss={dismiss} />
       <PetalBurst show={showPetals} onDone={clearPetals} />
 
       <div className="space-y-5 relative z-10">
+        <WhisperCard text={whisperText ?? ""} show={showWhisper} onDismiss={dismiss} />
         <GreetingHeader name={profile?.display_name} />
 
         <MoodCarousel
@@ -100,17 +99,15 @@ export default function DashboardPage() {
         />
 
         {profile?.finance_enabled !== false && (
-          <>
-            <SpendBubblesCard
-              expenses={expenses}
-              onAdd={async (category: ExpenseCategory, amount: number) => {
-                await api.addExpense(userId, category, amount);
-                trackEvent("expense_logged", { category, amount });
-                refresh();
-              }}
-            />
-            <MonthlySpendChart expenses={monthlyExpenses} />
-          </>
+          <SpendBubblesCard
+            expenses={expenses}
+            monthlyExpenses={monthlyExpenses}
+            onAdd={async (category: ExpenseCategory, amount: number) => {
+              await api.addExpense(userId, category, amount);
+              trackEvent("expense_logged", { category, amount });
+              refresh();
+            }}
+          />
         )}
 
         <MealTimelineCard
