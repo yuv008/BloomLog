@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --cream: #fbf7f0;
+  --sage: #a8b89a;
+  --blush: #e8c5c0;
+  --beige: #e8dcc8;
+  --lavender-gray: #b8b2c0;
+  --ink: #3a3530;
+  --whisper: #8a847c;
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --card: rgba(251, 247, 240, 0.72);
+  --card-border: rgba(58, 53, 48, 0.06);
+  --shadow-soft: 0 8px 32px rgba(58, 53, 48, 0.06);
+  --shadow-glass: 0 4px 24px rgba(58, 53, 48, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.dark {
+  --cream: #1f1b24;
+  --sage: #6e7e6a;
+  --blush: #b89186;
+  --beige: #2a2630;
+  --lavender-gray: #7a7484;
+  --ink: #e8e2d5;
+  --whisper: #a8a29a;
+  --background: #1f1b24;
+  --foreground: #e8e2d5;
+  --card: rgba(42, 38, 48, 0.72);
+  --card-border: rgba(232, 226, 213, 0.08);
+  --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --shadow-glass: 0 4px 24px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 @theme inline {
+  --color-cream: var(--cream);
+  --color-sage: var(--sage);
+  --color-blush: var(--blush);
+  --color-beige: var(--beige);
+  --color-lavender-gray: var(--lavender-gray);
+  --color-ink: var(--ink);
+  --color-whisper: var(--whisper);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-fraunces);
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
 }
 
 body {
+  min-height: 100%;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+
+.glass-card {
+  background: var(--card);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius-lg);
+}
+
+.soft-shadow {
+  box-shadow: var(--shadow-soft);
+}
+
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,0 +1,122 @@
+"use client";
+
+import { useState } from "react";
+import { useTheme } from "next-themes";
+import * as Switch from "@radix-ui/react-switch";
+import { Button } from "@/components/primitives/button";
+import { useUserId, useProfile } from "@/hooks/use-bloom-data";
+import * as api from "@/lib/data/api";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  requestNotificationPermission,
+  scheduleCozyHourReminder,
+} from "@/lib/notifications/push";
+
+export default function SettingsPage() {
+  const userId = useUserId();
+  const { data: profile } = useProfile(userId);
+  const qc = useQueryClient();
+  const { theme, setTheme } = useTheme();
+  const [exporting, setExporting] = useState(false);
+
+  const update = async (patch: Parameters<typeof api.upsertProfile>[1]) => {
+    if (!userId) return;
+    await api.upsertProfile(userId, patch);
+    qc.invalidateQueries({ queryKey: ["profile", userId] });
+  };
+
+  const handleExport = async () => {
+    if (!userId) return;
+    setExporting(true);
+    const data = await api.exportUserData(userId);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bloomlog-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setExporting(false);
+  };
+
+  const handleDelete = async () => {
+    if (!userId || !confirm("delete all your garden data? this cannot be undone.")) return;
+    await api.deleteAllUserData(userId);
+    window.location.href = "/onboarding";
+  };
+
+  return (
+    <div className="space-y-6 pb-8">
+      <h1 className="font-display text-2xl text-ink">settings</h1>
+
+      <section className="glass-card p-5 space-y-4">
+        <h2 className="text-sm text-whisper">appearance</h2>
+        <div className="flex gap-2">
+          <Button
+            variant={theme === "light" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setTheme("light")}
+          >
+            day garden
+          </Button>
+          <Button
+            variant={theme === "dark" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setTheme("dark")}
+          >
+            night garden
+          </Button>
+        </div>
+      </section>
+
+      <section className="glass-card p-5 space-y-4">
+        <h2 className="text-sm text-whisper">cozy hour reminder</h2>
+        <label className="flex items-center justify-between">
+          <span className="text-sm text-ink">gentle daily ping</span>
+          <Switch.Root
+            checked={profile?.notifications_enabled ?? false}
+            onCheckedChange={async (checked) => {
+              await update({ notifications_enabled: checked });
+              if (checked) {
+                const ok = await requestNotificationPermission();
+                if (ok) scheduleCozyHourReminder(profile?.cozy_hour ?? "21:00");
+              }
+            }}
+            className="w-11 h-6 rounded-full bg-beige data-[state=checked]:bg-sage relative"
+          >
+            <Switch.Thumb className="block w-5 h-5 rounded-full bg-cream transition-transform translate-x-0.5 data-[state=checked]:translate-x-[22px]" />
+          </Switch.Root>
+        </label>
+        <input
+          type="time"
+          defaultValue={profile?.cozy_hour?.slice(0, 5) ?? "21:00"}
+          onChange={(e) => update({ cozy_hour: e.target.value })}
+          className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-ink"
+        />
+      </section>
+
+      <section className="glass-card p-5 space-y-4">
+        <h2 className="text-sm text-whisper">finance card</h2>
+        <label className="flex items-center justify-between">
+          <span className="text-sm text-ink">show spend bubbles</span>
+          <Switch.Root
+            checked={profile?.finance_enabled ?? true}
+            onCheckedChange={(checked) => update({ finance_enabled: checked })}
+            className="w-11 h-6 rounded-full bg-beige data-[state=checked]:bg-sage relative"
+          >
+            <Switch.Thumb className="block w-5 h-5 rounded-full bg-cream transition-transform translate-x-0.5 data-[state=checked]:translate-x-[22px]" />
+          </Switch.Root>
+        </label>
+      </section>
+
+      <section className="glass-card p-5 space-y-3">
+        <h2 className="text-sm text-whisper">your data</h2>
+        <Button variant="ghost" className="w-full" onClick={handleExport} disabled={exporting}>
+          export json
+        </Button>
+        <Button variant="ghost" className="w-full text-blush" onClick={handleDelete}>
+          delete everything
+        </Button>
+      </section>
+    </div>
+  );
+}
