@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { m } from "framer-motion";
-import { format } from "date-fns";
+import { useUserPreferences } from "@/components/providers/user-preferences";
 import { Button } from "@/components/primitives/button";
 import { Sheet } from "@/components/primitives/sheet";
 import { getMoodConfig } from "@/lib/mood/config";
@@ -16,9 +16,16 @@ function excerpt(body: string, max = 120) {
   return `${t.slice(0, max).trim()}…`;
 }
 
-function formatLetterDate(iso: string) {
+function formatLetterDate(iso: string, timeZone: string) {
   try {
-    return format(new Date(iso), "MMM d, yyyy · h:mm a");
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(iso));
   } catch {
     return iso.slice(0, 10);
   }
@@ -37,6 +44,7 @@ export function JournalLetters({
   const [readLetter, setReadLetter] = useState<JournalLetter | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const { timezone } = useUserPreferences();
 
   const saveNew = async () => {
     if (!draft.trim()) return;
@@ -84,8 +92,7 @@ export function JournalLetters({
           </p>
           <p className="font-display text-lg text-ink">your shelf has room for a letter</p>
           <p className="text-sm text-whisper mt-2 max-w-xs mx-auto">
-            longer thoughts belong here. today&apos;s one-line note on the today tab stays
-            separate.
+            longer thoughts belong here — no schedule, no pressure.
           </p>
         </div>
       ) : (
@@ -109,7 +116,7 @@ export function JournalLetters({
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="text-xs text-whisper">
-                      {formatLetterDate(letter.created_at)}
+                      {formatLetterDate(letter.created_at, timezone)}
                     </span>
                     {mood && (
                       <span className="text-lg" title={mood.label}>
@@ -154,7 +161,7 @@ export function JournalLetters({
       >
         {readLetter && (
           <div className="space-y-4">
-            <p className="text-xs text-whisper">{formatLetterDate(readLetter.created_at)}</p>
+            <p className="text-xs text-whisper">{formatLetterDate(readLetter.created_at, timezone)}</p>
             {readLetter.mood_snapshot && (
               <p className="text-sm text-whisper">
                 sky that day:{" "}

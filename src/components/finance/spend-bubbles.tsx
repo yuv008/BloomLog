@@ -9,6 +9,8 @@ import { Sheet } from "@/components/primitives/sheet";
 import { EXPENSE_CATEGORIES } from "@/lib/finance/categories";
 import { aggregateExpensesByCategory } from "@/lib/finance/monthly";
 import { MonthlySpendPanel } from "@/components/finance/monthly-spend-chart";
+import { useUserPreferences } from "@/components/providers/user-preferences";
+import { formatMoney } from "@/lib/locale/format-money";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 import { NumberWheel } from "./number-wheel";
 
@@ -21,6 +23,7 @@ export function SpendBubblesCard({
   monthlyExpenses: Expense[];
   onAdd: (category: ExpenseCategory, amount: number) => Promise<void>;
 }) {
+  const { currency } = useUserPreferences();
   const [open, setOpen] = useState(false);
   const [monthOpen, setMonthOpen] = useState(false);
   const [category, setCategory] = useState<ExpenseCategory | null>(null);
@@ -35,7 +38,7 @@ export function SpendBubblesCard({
       <Card>
         <p className="font-display text-lg text-ink">where money went today</p>
         <p className="text-xs text-whisper mb-3 tabular-nums">
-          ₹{todayTotal.toFixed(0)} today · no judgment
+          {formatMoney(todayTotal, currency)} today · no judgment
         </p>
         <m.div className="relative min-h-[140px] rounded-[20px] bg-beige/20 p-3 overflow-hidden">
           {expenses.length === 0 ? (
@@ -81,7 +84,7 @@ export function SpendBubblesCard({
               <p className="font-display text-base text-ink">this month, softly</p>
               <p className="text-xs text-whisper mt-0.5">
                 {monthTotal > 0
-                  ? `₹${monthTotal.toFixed(0)} across ${monthRows.length} ${monthRows.length === 1 ? "place" : "places"}`
+                  ? `${formatMoney(monthTotal, currency)} across ${monthRows.length} ${monthRows.length === 1 ? "place" : "places"}`
                   : "peek at your month shape"}
               </p>
             </div>
@@ -150,7 +153,7 @@ export function SpendBubblesCard({
           <div className="rounded-[20px] bg-cream p-4 border border-beige rotate-[-1deg]">
             <p className="font-display text-xl">
               {EXPENSE_CATEGORIES.find((c) => c.id === selected.category)?.emoji}{" "}
-              ₹{Number(selected.amount).toFixed(0)}
+              {formatMoney(Number(selected.amount), currency)}
             </p>
             <p className="text-sm text-whisper mt-2">
               {EXPENSE_CATEGORIES.find((c) => c.id === selected.category)?.label}

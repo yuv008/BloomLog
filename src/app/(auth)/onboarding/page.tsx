@@ -8,6 +8,7 @@ import { Button } from "@/components/primitives/button";
 import * as api from "@/lib/data/api";
 import type { RoomTheme } from "@/lib/types";
 import { trackEvent } from "@/lib/analytics/posthog";
+import { detectDefaultLocale } from "@/lib/locale/detect";
 
 const ROOMS: { id: RoomTheme; label: string; emoji: string }[] = [
   { id: "windowsill", label: "windowsill", emoji: "🪟" },
@@ -26,10 +27,13 @@ export default function OnboardingPage() {
   const finish = async () => {
     setLoading(true);
     const { userId } = await api.ensureAuth();
+    const locale = detectDefaultLocale();
     const profile = await api.upsertProfile(userId, {
       display_name: name.trim() || null,
       room_theme: room,
       onboarding_complete: true,
+      currency: locale.currency,
+      timezone: locale.timezone,
     });
     qc.setQueryData(["profile", userId], profile);
     await qc.invalidateQueries({ queryKey: ["profile", userId] });

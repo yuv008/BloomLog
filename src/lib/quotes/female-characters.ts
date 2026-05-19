@@ -1,0 +1,47 @@
+export interface QuoteEntry {
+  quote: string;
+  character: string;
+  source: string;
+}
+
+export const FEMALE_CHARACTER_QUOTES: QuoteEntry[] = [
+  { quote: "You are capable of amazing things.", character: "Leslie Knope", source: "Parks and Recreation" },
+  { quote: "When in doubt, go to the library.", character: "Hermione Granger", source: "Harry Potter" },
+  { quote: "Exercise gives you endorphins. Endorphins make you happy.", character: "Elle Woods", source: "Legally Blonde" },
+  { quote: "Everybody wants to be us.", character: "Miranda Priestly", source: "The Devil Wears Prada" },
+  { quote: "I am not a prize to be won.", character: "Jasmine", source: "Aladdin" },
+  { quote: "I can't go back to yesterday because I was a different person then.", character: "Alice", source: "Alice in Wonderland" },
+  { quote: "I am no bird; and no net ensnares me.", character: "Jane Eyre", source: "Jane Eyre" },
+  { quote: "Let it go.", character: "Elsa", source: "Frozen" },
+  { quote: "I am not afraid of storms, for I'm learning how to sail my ship.", character: "Jo March", source: "Little Women" },
+  { quote: "Some people are worth melting for.", character: "Anna", source: "Frozen" },
+  { quote: "I volunteer as tribute!", character: "Katniss Everdeen", source: "The Hunger Games" },
+  { quote: "Our fate lives within us. You only have to be brave enough to see it.", character: "Merida", source: "Brave" },
+  { quote: "I have asked for so little. I would like to buy a bag of local produce.", character: "Moira Rose", source: "Schitt's Creek" },
+  { quote: "You is kind. You is smart. You is important.", character: "Aibileen Clark", source: "The Help" },
+  { quote: "The flower that blooms in adversity is the most rare and beautiful of all.", character: "Mulan", source: "Mulan" },
+  { quote: "I am no man.", character: "Éowyn", source: "The Lord of the Rings" },
+  { quote: "There is a stubbornness about me that never can bear to be frightened at the will of others.", character: "Elizabeth Bennet", source: "Pride and Prejudice" },
+  { quote: "Ohana means family. Family means nobody gets left behind.", character: "Lilo", source: "Lilo & Stitch" },
+  { quote: "Just because I cannot see it doesn't mean it isn't real.", character: "Cinderella", source: "Cinderella" },
+  { quote: "Just keep swimming.", character: "Dory", source: "Finding Nemo" },
+  { quote: "I want adventure in the great wide somewhere.", character: "Belle", source: "Beauty and the Beast" },
+  { quote: "See the line where the sky meets the sea? It calls me.", character: "Moana", source: "Moana" },
+  { quote: "I am not a damsel in distress. I am the hero of my own story.", character: "Rapunzel", source: "Tangled" },
+  { quote: "After all, tomorrow is another day.", character: "Scarlett O'Hara", source: "Gone with the Wind" },
+  { quote: "I know what I have to do. I just don't know if I have the strength to do it.", character: "Diana Prince", source: "Wonder Woman" },
+  { quote: "You have more power than you realize.", character: "Moana", source: "Moana" },
+  { quote: "I'm still worthy.", character: "Frigga", source: "Thor" },
+  { quote: "Courage is not the absence of fear, but the triumph over it.", character: "Nakia", source: "Black Panther" },
+  { quote: "I am Moira Rose, and I will not be silenced.", character: "Moira Rose", source: "Schitt's Creek" },
+  { quote: "What would you do if you weren't afraid?", character: "Sheryl Sandberg", source: "Lean In" },
+  { quote: "No one can make you feel inferior without your consent.", character: "Eleanor Roosevelt", source: "The First Lady" },
+  { quote: "I am my own muse.", character: "Frida Kahlo", source: "Frida" },
+  { quote: "Stay afraid, but do it anyway.", character: "Carrie Fisher", source: "Interview" },
+  { quote: "I am not free while any woman is unfree.", character: "Audre Lorde", source: "Speech" },
+  { quote: "The most courageous act is still to think for yourself. Aloud.", character: "Coco Chanel", source: "Interview" },
+  { quote: "I am not a bird; I am a phoenix rising from the ashes.", character: "Katniss Everdeen", source: "The Hunger Games" },
+  { quote: "You must not let anyone define your limits because of where you come from.", character: "Dory", source: "Finding Nemo" },
+  { quote: "I am not afraid. I was born to do this.", character: "Joan of Arc", source: "Joan of Arc" },
+  { quote: "A girl should be two things: who and what she wants.", character: "Coco Chanel", source: "Coco Before Chanel" },
+];

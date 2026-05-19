@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef } from "react";
+import { useUserPreferences } from "@/components/providers/user-preferences";
+import { formatMoney } from "@/lib/locale/format-money";
 
 const PRESETS = [50, 100, 200, 500, 1000, 2000, 5000];
 
@@ -12,10 +14,13 @@ export function NumberWheel({
   onChange: (n: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const { currency } = useUserPreferences();
 
   return (
     <div className="space-y-3">
-      <p className="text-center font-display text-3xl text-ink tabular-nums">₹{value}</p>
+      <p className="text-center font-display text-3xl text-ink tabular-nums">
+        {formatMoney(value, currency)}
+      </p>
       <div
         ref={ref}
         className="flex gap-2 overflow-x-auto no-scrollbar py-2 snap-x"
@@ -29,7 +34,7 @@ export function NumberWheel({
               value === n ? "bg-sage text-cream" : "bg-beige/50 text-ink"
             }`}
           >
-            ₹{n}
+            {formatMoney(n, currency)}
           </button>
         ))}
       </div>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import * as api from "@/lib/data/api";
 import { todayKey, monthKey } from "@/lib/dates";
+import { useUserPreferences } from "@/components/providers/user-preferences";
 
 export function useUserId() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -21,8 +22,15 @@ export function useProfile(userId: string | null) {
   });
 }
 
+function useRitualDateKeys() {
+  const { timezone } = useUserPreferences();
+  const date = todayKey(timezone);
+  const month = monthKey(new Date(), timezone);
+  return { timezone, date, month };
+}
+
 export function useDaily(userId: string | null) {
-  const date = todayKey();
+  const { date } = useRitualDateKeys();
   return useQuery({
     queryKey: ["daily", userId, date],
     queryFn: () => (userId ? api.getDailyEntry(userId, date) : null),
@@ -31,7 +39,7 @@ export function useDaily(userId: string | null) {
 }
 
 export function useExpenses(userId: string | null) {
-  const date = todayKey();
+  const { date } = useRitualDateKeys();
   return useQuery({
     queryKey: ["expenses", userId, date],
     queryFn: () => (userId ? api.getExpenses(userId, date) : []),
@@ -40,7 +48,7 @@ export function useExpenses(userId: string | null) {
 }
 
 export function useMonthlyExpenses(userId: string | null) {
-  const month = monthKey();
+  const { month } = useRitualDateKeys();
   return useQuery({
     queryKey: ["expenses-month", userId, month],
     queryFn: () => (userId ? api.getExpensesForMonth(userId, month) : []),
@@ -49,7 +57,7 @@ export function useMonthlyExpenses(userId: string | null) {
 }
 
 export function useMeals(userId: string | null) {
-  const date = todayKey();
+  const { date } = useRitualDateKeys();
   return useQuery({
     queryKey: ["meals", userId, date],
     queryFn: () => (userId ? api.getMeals(userId, date) : []),
@@ -58,7 +66,7 @@ export function useMeals(userId: string | null) {
 }
 
 export function useQuests(userId: string | null) {
-  const date = todayKey();
+  const { date } = useRitualDateKeys();
   return useQuery({
     queryKey: ["quests", userId, date],
     queryFn: () => (userId ? api.getQuestCompletions(userId, date) : []),
@@ -90,18 +98,35 @@ export function useJournalLetters(userId: string | null) {
   });
 }
 
+export function useTodayKey() {
+  const { date, month, timezone } = useRitualDateKeys();
+  return { date, month, timezone };
+}
+
 export function useInvalidateDaily() {
   const qc = useQueryClient();
-  const date = todayKey();
+  const { date } = useRitualDateKeys();
   return (userId: string) => {
     qc.invalidateQueries({ queryKey: ["daily", userId, date] });
     qc.invalidateQueries({ queryKey: ["garden", userId] });
   };
 }
 
+export function useInvalidateRitualQueries() {
+  const qc = useQueryClient();
+  return (userId: string) => {
+    qc.invalidateQueries({ queryKey: ["daily", userId] });
+    qc.invalidateQueries({ queryKey: ["expenses", userId] });
+    qc.invalidateQueries({ queryKey: ["expenses-month", userId] });
+    qc.invalidateQueries({ queryKey: ["meals", userId] });
+    qc.invalidateQueries({ queryKey: ["quests", userId] });
+    qc.invalidateQueries({ queryKey: ["journal", userId] });
+  };
+}
+
 export function usePatchDailyCache() {
   const qc = useQueryClient();
-  const date = todayKey();
+  const { date } = useRitualDateKeys();
   return (userId: string, entry: Awaited<ReturnType<typeof api.getDailyEntry>>) => {
     qc.setQueryData(["daily", userId, date], entry);
   };

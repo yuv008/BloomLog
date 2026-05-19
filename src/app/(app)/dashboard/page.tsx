@@ -10,6 +10,7 @@ import { MealTimelineCard } from "@/components/food/meal-timeline";
 import { TinyQuestsCard } from "@/components/quests/tiny-quests";
 import { SleepTrackerCard } from "@/components/sleep/sleep-tracker";
 import { WhisperCard } from "@/components/whispers/whisper-card";
+import { CharacterQuoteCard } from "@/components/dashboard/character-quote-card";
 import { PetalBurst } from "@/components/motion/petal-burst";
 import {
   useUserId,
@@ -21,11 +22,11 @@ import {
   useQuests,
   useInvalidateDaily,
   usePatchDailyCache,
+  useTodayKey,
 } from "@/hooks/use-bloom-data";
 import { useWhisper } from "@/hooks/use-whisper";
 import { useUiStore } from "@/stores/use-ui-store";
 import * as api from "@/lib/data/api";
-import { todayKey, monthKey } from "@/lib/dates";
 import { trackEvent } from "@/lib/analytics/posthog";
 import type { Mood, ExpenseCategory, FoodTag, SleepQuality } from "@/lib/types";
 
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const { data: quests = [] } = useQuests(userId);
   const invalidate = useInvalidateDaily();
   const patchDaily = usePatchDailyCache();
+  const { date, month } = useTodayKey();
   const showPetals = useUiStore((s) => s.showPetalBurst);
   const clearPetals = useUiStore((s) => s.clearPetalBurst);
 
@@ -53,14 +55,13 @@ export default function DashboardPage() {
 
   const refresh = useCallback(() => {
     if (userId) {
-      const date = todayKey();
       qc.invalidateQueries({ queryKey: ["daily", userId, date] });
       qc.invalidateQueries({ queryKey: ["expenses", userId, date] });
-      qc.invalidateQueries({ queryKey: ["expenses-month", userId, monthKey()] });
+      qc.invalidateQueries({ queryKey: ["expenses-month", userId, month] });
       qc.invalidateQueries({ queryKey: ["meals", userId, date] });
       qc.invalidateQueries({ queryKey: ["quests", userId, date] });
     }
-  }, [userId, qc]);
+  }, [userId, qc, date, month]);
 
   if (!userId) {
     return (
@@ -82,7 +83,7 @@ export default function DashboardPage() {
         <MoodCarousel
           value={mood}
           onChange={async (m: Mood) => {
-            const entry = await api.setMood(userId, m);
+            const entry = await api.setMood(userId, m, date);
             patchDaily(userId, entry);
             trackEvent("mood_set", { mood: m });
             refresh();
@@ -92,7 +93,7 @@ export default function DashboardPage() {
         <WaterBottleCard
           waterMl={daily?.water_ml ?? 0}
           onAdd={async (ml) => {
-            const entry = await api.addWater(userId, ml);
+            const entry = await api.addWater(userId, ml, date);
             patchDaily(userId, entry);
             trackEvent("water_added", { ml });
           }}
@@ -103,7 +104,7 @@ export default function DashboardPage() {
             expenses={expenses}
             monthlyExpenses={monthlyExpenses}
             onAdd={async (category: ExpenseCategory, amount: number) => {
-              await api.addExpense(userId, category, amount);
+              await api.addExpense(userId, category, amount, undefined, date);
               trackEvent("expense_logged", { category, amount });
               refresh();
             }}
@@ -113,7 +114,7 @@ export default function DashboardPage() {
         <MealTimelineCard
           meals={meals}
           onAdd={async (tags: FoodTag[], photo) => {
-            await api.addMeal(userId, tags, photo);
+            await api.addMeal(userId, tags, photo, date);
             trackEvent("meal_logged");
             refresh();
           }}
@@ -124,7 +125,7 @@ export default function DashboardPage() {
           sleepEnd={daily?.sleep_end ?? null}
           sleepQuality={daily?.sleep_quality ?? null}
           onSave={async (start, end, quality: SleepQuality | null) => {
-            await api.setSleep(userId, start, end, quality);
+            await api.setSleep(userId, start, end, quality, date);
             invalidate(userId);
           }}
         />
@@ -133,7 +134,7 @@ export default function DashboardPage() {
           userId={userId}
           completions={quests}
           onComplete={async (key) => {
-            const result = await api.completeQuest(userId, key);
+            const result = await api.completeQuest(userId, key, date);
             trackEvent("quest_completed", { quest_key: key });
             refresh();
             qc.invalidateQueries({ queryKey: ["garden", userId] });
@@ -141,35 +142,8 @@ export default function DashboardPage() {
           }}
         />
 
-        <NoteCard
-          note={daily?.note ?? ""}
-          onSave={async (note) => {
-            await api.setNote(userId, note);
-            refresh();
-          }}
-        />
+        <CharacterQuoteCard dateKey={date} userId={userId} />
       </div>
     </>
-  );
-}
-
-function NoteCard({
-  note,
-  onSave,
-}: {
-  note: string;
-  onSave: (note: string) => Promise<void>;
-}) {
-  return (
-    <div className="glass-card p-5">
-      <p className="font-display text-lg text-ink mb-2">one line</p>
-      <input
-        type="text"
-        defaultValue={note}
-        placeholder="optional whisper to yourself"
-        onBlur={(e) => onSave(e.target.value)}
-        className="w-full bg-transparent text-sm text-ink placeholder:text-whisper border-b border-beige/60 pb-2 focus:outline-none focus:border-sage"
-      />
-    </div>
   );
 }

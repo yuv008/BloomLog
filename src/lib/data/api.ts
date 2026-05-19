@@ -3,6 +3,9 @@
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { localStore, getOrCreateGuestId } from "@/lib/storage/local";
 import { todayKey, monthKey, monthDateRange } from "@/lib/dates";
+import { detectDefaultLocale } from "@/lib/locale/detect";
+import { normalizeCurrency } from "@/lib/locale/currencies";
+import { normalizeTimezone } from "@/lib/locale/timezones";
 import { ensureAuth, shouldUseSupabase, isLocalUserId } from "@/lib/data/auth";
 import type {
   DailyEntry,
@@ -27,6 +30,18 @@ function uid() {
   return crypto.randomUUID();
 }
 
+async function todayForUser(userId: string, date?: string): Promise<string> {
+  if (date) return date;
+  const profile = await getProfile(userId);
+  return todayKey(profile?.timezone);
+}
+
+async function monthForUser(userId: string, month?: string): Promise<string> {
+  if (month) return month;
+  const profile = await getProfile(userId);
+  return monthKey(new Date(), profile?.timezone);
+}
+
 export { ensureAuth, shouldUseSupabase, isLocalUserId };
 
 export async function ensureAuthUserId(): Promise<string> {
@@ -42,19 +57,28 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
       .select("*")
       .eq("id", userId)
       .maybeSingle();
-    if (!error && data) return data as UserProfile;
+    if (!error && data) return normalizeProfile(data as UserProfile);
   }
   const local = localStore.getProfile();
   if (!local) return null;
-  if (local.id === userId || isLocalUserId(userId)) return local;
-  if (local.onboarding_complete) return { ...local, id: userId };
+  if (local.id === userId || isLocalUserId(userId)) return normalizeProfile(local);
+  if (local.onboarding_complete) return normalizeProfile({ ...local, id: userId });
   return null;
+}
+
+function normalizeProfile(profile: UserProfile): UserProfile {
+  return {
+    ...profile,
+    currency: normalizeCurrency(profile.currency),
+    timezone: normalizeTimezone(profile.timezone),
+  };
 }
 
 export async function upsertProfile(
   userId: string,
   patch: Partial<UserProfile>
 ): Promise<UserProfile> {
+  const defaults = detectDefaultLocale();
   const existing = (await getProfile(userId)) ?? {
     id: userId,
     display_name: null,
@@ -63,9 +87,11 @@ export async function upsertProfile(
     onboarding_complete: false,
     notifications_enabled: false,
     finance_enabled: true,
+    currency: defaults.currency,
+    timezone: defaults.timezone,
     created_at: new Date().toISOString(),
   };
-  const merged = { ...existing, ...patch, id: userId };
+  const merged = normalizeProfile({ ...existing, ...patch, id: userId });
 
   if (shouldUseSupabase(userId)) {
     const supabase = createClient()!;
@@ -105,7 +131,7 @@ export async function upsertDailyEntry(
   userId: string,
   patch: Partial<DailyEntry> & { date?: string }
 ): Promise<DailyEntry> {
-  const date = patch.date ?? todayKey();
+  const date = patch.date ?? (await todayForUser(userId));
   const existing = (await getDailyEntry(userId, date)) ?? {
     id: uid(),
     user_id: userId,
@@ -131,14 +157,16 @@ export async function upsertDailyEntry(
   return merged;
 }
 
-export async function setMood(userId: string, mood: Mood) {
-  return upsertDailyEntry(userId, { mood });
+export async function setMood(userId: string, mood: Mood, date?: string) {
+  const d = await todayForUser(userId, date);
+  return upsertDailyEntry(userId, { mood, date: d });
 }
 
-export async function addWater(userId: string, ml: number) {
-  const entry = await getDailyEntry(userId);
+export async function addWater(userId: string, ml: number, date?: string) {
+  const d = await todayForUser(userId, date);
+  const entry = await getDailyEntry(userId, d);
   const water_ml = (entry?.water_ml ?? 0) + ml;
-  return upsertDailyEntry(userId, { water_ml });
+  return upsertDailyEntry(userId, { water_ml, date: d });
 }
 
 export async function setNote(userId: string, note: string) {
@@ -149,9 +177,11 @@ export async function setSleep(
   userId: string,
   sleep_start: string,
   sleep_end: string,
-  sleep_quality: SleepQuality | null
+  sleep_quality: SleepQuality | null,
+  date?: string
 ) {
-  return upsertDailyEntry(userId, { sleep_start, sleep_end, sleep_quality });
+  const d = await todayForUser(userId, date);
+  return upsertDailyEntry(userId, { sleep_start, sleep_end, sleep_quality, date: d });
 }
 
 export async function getExpenses(
@@ -173,9 +203,11 @@ export async function getExpenses(
 
 export async function getExpensesForMonth(
   userId: string,
-  month = monthKey()
+  month?: string
 ): Promise<Expense[]> {
-  const { start, end } = monthDateRange(month);
+  const resolvedMonth = month ?? (await monthForUser(userId));
+  const profile = await getProfile(userId);
+  const { start, end } = monthDateRange(resolvedMonth, profile?.timezone);
   if (shouldUseSupabase(userId)) {
     const supabase = createClient()!;
     const { data, error } = await supabase
@@ -187,7 +219,7 @@ export async function getExpensesForMonth(
       .order("date", { ascending: true });
     if (!error && data) return data as Expense[];
   }
-  const local = localStore.getExpensesForMonth(month);
+  const local = localStore.getExpensesForMonth(resolvedMonth);
   if (isLocalUserId(userId)) return local;
   return local.filter((e) => e.user_id === userId);
 }
@@ -196,12 +228,13 @@ export async function addExpense(
   userId: string,
   category: ExpenseCategory,
   amount: number,
-  note?: string
+  note?: string,
+  date?: string
 ) {
   const expense: Expense = {
     id: uid(),
     user_id: userId,
-    date: todayKey(),
+    date: await todayForUser(userId, date),
     category,
     amount,
     note: note ?? null,
@@ -236,12 +269,13 @@ export async function getMeals(userId: string, date = todayKey()): Promise<Meal[
 export async function addMeal(
   userId: string,
   tags: FoodTag[],
-  photo_url?: string | null
+  photo_url?: string | null,
+  date?: string
 ) {
   const meal: Meal = {
     id: uid(),
     user_id: userId,
-    date: todayKey(),
+    date: await todayForUser(userId, date),
     meal_time: new Date().toISOString(),
     photo_url: photo_url ?? null,
     tags,
@@ -274,12 +308,12 @@ export async function getQuestCompletions(
   return localStore.getQuests(date);
 }
 
-export async function completeQuest(userId: string, questKey: string) {
-  const date = todayKey();
+export async function completeQuest(userId: string, questKey: string, date?: string) {
+  const resolvedDate = await todayForUser(userId, date);
   const q: QuestCompletion = {
     id: uid(),
     user_id: userId,
-    date,
+    date: resolvedDate,
     quest_key: questKey,
   };
 
@@ -290,7 +324,7 @@ export async function completeQuest(userId: string, questKey: string) {
     });
     if (error) console.warn("[bloomlog] quest upsert:", error.message);
     else {
-      const rare = isRareSeedRoll(userId, date, questKey);
+      const rare = isRareSeedRoll(userId, resolvedDate, questKey);
       const seed = Math.abs(
         questKey.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
       );
@@ -305,7 +339,7 @@ export async function completeQuest(userId: string, questKey: string) {
   }
 
   localStore.addQuest(q);
-  const rare = isRareSeedRoll(userId, date, questKey);
+  const rare = isRareSeedRoll(userId, resolvedDate, questKey);
   const seed = Math.abs(questKey.split("").reduce((a, c) => a + c.charCodeAt(0), 0));
   const itemDef = randomGardenReward(seed, rare);
   await addGardenItem(userId, itemDef.key, {
@@ -409,7 +443,8 @@ export async function addJournalLetter(userId: string, body: string) {
   const trimmed = body.trim();
   if (!trimmed) throw new Error("letter body required");
 
-  const daily = await getDailyEntry(userId);
+  const d = await todayForUser(userId);
+  const daily = await getDailyEntry(userId, d);
   const letter: JournalLetter = {
     id: uid(),
     user_id: userId,
@@ -443,7 +478,7 @@ export async function deleteJournalLetter(userId: string, letterId: string) {
 }
 
 export async function getWhispersToday(userId: string): Promise<WhisperLog[]> {
-  const today = todayKey();
+  const today = await todayForUser(userId);
   if (shouldUseSupabase(userId)) {
     const supabase = createClient()!;
     const { data, error } = await supabase

@@ -3,14 +3,18 @@
 import { m } from "framer-motion";
 import { aggregateExpensesByCategory } from "@/lib/finance/monthly";
 import { monthLabel } from "@/lib/dates";
+import { useUserPreferences } from "@/components/providers/user-preferences";
+import { formatMoney } from "@/lib/locale/format-money";
 import type { Expense } from "@/lib/types";
 
 function DonutChart({
   slices,
   total,
+  currency,
 }: {
   slices: { amount: number; color: string }[];
   total: number;
+  currency: string;
 }) {
   if (total <= 0) {
     return (
@@ -45,14 +49,17 @@ function DonutChart({
     >
       <div className="absolute inset-[22%] rounded-full bg-cream flex flex-col items-center justify-center">
         <span className="text-[9px] uppercase tracking-wide text-whisper">month</span>
-        <span className="font-display text-base text-ink tabular-nums">₹{total.toFixed(0)}</span>
+        <span className="font-display text-base text-ink tabular-nums">
+          {formatMoney(total, currency, { compact: true })}
+        </span>
       </div>
     </m.div>
   );
 }
 
 export function MonthlySpendPanel({ expenses }: { expenses: Expense[] }) {
-  const month = monthLabel();
+  const { currency, timezone } = useUserPreferences();
+  const month = monthLabel(undefined, timezone);
   const rows = aggregateExpensesByCategory(expenses);
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
@@ -73,7 +80,7 @@ export function MonthlySpendPanel({ expenses }: { expenses: Expense[] }) {
     >
       <p className="text-xs text-whisper w-full text-center">{month}</p>
       <div className="flex flex-col sm:flex-row items-center gap-5 w-full">
-        <DonutChart slices={rows} total={total} />
+        <DonutChart slices={rows} total={total} currency={currency} />
         <ul className="flex-1 w-full space-y-1.5">
           {rows.map((row) => {
             const pct = Math.round((row.amount / total) * 100);
@@ -86,8 +93,8 @@ export function MonthlySpendPanel({ expenses }: { expenses: Expense[] }) {
                 <span className="text-base leading-none">{row.emoji}</span>
                 <span className="flex-1 text-ink">{row.label}</span>
                 <span className="text-whisper tabular-nums text-xs">{pct}%</span>
-                <span className="text-ink tabular-nums text-xs w-12 text-right">
-                  ₹{row.amount.toFixed(0)}
+                <span className="text-ink tabular-nums text-xs w-16 text-right">
+                  {formatMoney(row.amount, currency, { compact: true })}
                 </span>
               </li>
             );

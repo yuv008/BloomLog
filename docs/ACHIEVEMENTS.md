@@ -110,7 +110,8 @@ Wrapped by `(app)/layout.tsx`: max-width mobile shell, bottom nav when onboardin
    - Rare seed roll for rare decor items
 
 10. **One-line note**
-    - Optional daily note on `daily_entries.note`
+    - Daily character quote card (“a line to keep”) — one attributed line from TV/film per calendar day in the user’s timezone
+    - Settings: currency (12 options) and timezone for daily boundaries, greetings, and spend display
 
 ### 4.2 Garden (`/garden`)
 
@@ -127,7 +128,7 @@ Wrapped by `(app)/layout.tsx`: max-width mobile shell, bottom nav when onboardin
 - Polaroid stack UI for `memory_polaroids`
 - “Preview a cozy polaroid” button seeds a sample `cozy_week` recap locally
 - Supabase Edge Function `weekly_recap` exists for server-side recap generation (not fully wired to a one-tap UI in all environments)
-- **Letters to yourself** — optional journaling section below polaroids: multiple dated entries (`journal_letters` table + `localStorage` `letters` key), compose/read bottom sheets, mood snapshot from today’s daily entry on save, export/delete-all included. Separate from Today’s one-line `daily_entries.note`.
+- **Letters to yourself** — optional journaling section below polaroids: multiple dated entries (`journal_letters` table + `localStorage` `letters` key), compose/read bottom sheets, mood snapshot from today’s daily entry on save, export/delete-all included. Separate from Today’s daily quote card.
 
 ### 4.4 Recipe nook (`/recipes`)
 
@@ -333,7 +334,7 @@ Set mood → upsert daily_entries
 Add water → upsert water_ml
 Optional: log spend, meal, sleep
 Complete tiny quest → quest_completions + random garden_item
-Optional: one-line note
+Daily quote card (female character lines from TV/film)
 Whispers may appear based on triggers
 ```
 

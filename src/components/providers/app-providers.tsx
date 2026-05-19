@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { MotionProvider } from "@/components/motion/motion-provider";
+import { UserPreferencesProvider } from "@/components/providers/user-preferences";
 import { initPostHog, trackEvent } from "@/lib/analytics/posthog";
 
 const queryClient = new QueryClient({
@@ -21,7 +22,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-        <MotionProvider>{children}</MotionProvider>
+        <MotionProvider>
+          <UserPreferencesProvider>{children}</UserPreferencesProvider>
+        </MotionProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

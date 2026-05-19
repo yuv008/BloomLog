@@ -11,6 +11,7 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:db:push": "supabase db push",
+    "supabase:migrate:remote": "node scripts/run-remote-migrations.mjs",
     "supabase:db:reset": "supabase db reset",
     "supabase:gen:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "vercel:link": "vercel link",

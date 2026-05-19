@@ -34,6 +34,8 @@ export interface UserProfile {
   onboarding_complete: boolean;
   notifications_enabled: boolean;
   finance_enabled: boolean;
+  currency: string;
+  timezone: string;
   created_at: string;
 }
 

@@ -11,10 +11,18 @@ import {
   requestNotificationPermission,
   scheduleCozyHourReminder,
 } from "@/lib/notifications/push";
+import { CURRENCY_OPTIONS, normalizeCurrency } from "@/lib/locale/currencies";
+import {
+  TIMEZONE_GROUPS,
+  detectTimezone,
+  timezoneLabel,
+} from "@/lib/locale/timezones";
+import { useUserPreferences } from "@/components/providers/user-preferences";
 
 export default function SettingsPage() {
   const userId = useUserId();
   const { data: profile } = useProfile(userId);
+  const { currency, timezone } = useUserPreferences();
   const qc = useQueryClient();
   const { theme, setTheme } = useTheme();
   const [exporting, setExporting] = useState(false);
@@ -23,6 +31,16 @@ export default function SettingsPage() {
     if (!userId) return;
     await api.upsertProfile(userId, patch);
     qc.invalidateQueries({ queryKey: ["profile", userId] });
+  };
+
+  const invalidateDateQueries = () => {
+    if (!userId) return;
+    qc.invalidateQueries({ queryKey: ["daily", userId] });
+    qc.invalidateQueries({ queryKey: ["expenses", userId] });
+    qc.invalidateQueries({ queryKey: ["expenses-month", userId] });
+    qc.invalidateQueries({ queryKey: ["meals", userId] });
+    qc.invalidateQueries({ queryKey: ["quests", userId] });
+    qc.invalidateQueries({ queryKey: ["journal", userId] });
   };
 
   const handleExport = async () => {
@@ -43,6 +61,12 @@ export default function SettingsPage() {
     await api.deleteAllUserData(userId);
     window.location.href = "/onboarding";
   };
+
+  const deviceTz = detectTimezone();
+  const tzOptions = [
+    { id: deviceTz, label: `device (${timezoneLabel(deviceTz)})` },
+    ...TIMEZONE_GROUPS.flatMap((g) => g.zones).filter((z) => z.id !== deviceTz),
+  ];
 
   return (
     <div className="space-y-6 pb-8">
@@ -69,6 +93,43 @@ export default function SettingsPage() {
       </section>
 
       <section className="glass-card p-5 space-y-4">
+        <h2 className="text-sm text-whisper">region & rhythm</h2>
+        <label className="block space-y-2">
+          <span className="text-sm text-ink">money shows in</span>
+          <select
+            value={currency}
+            onChange={async (e) => {
+              await update({ currency: normalizeCurrency(e.target.value) });
+            }}
+            className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-sm text-ink"
+          >
+            {CURRENCY_OPTIONS.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm text-ink">your days start at midnight in</span>
+          <select
+            value={timezone}
+            onChange={async (e) => {
+              await update({ timezone: e.target.value });
+              invalidateDateQueries();
+            }}
+            className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-sm text-ink"
+          >
+            {tzOptions.map((z) => (
+              <option key={z.id} value={z.id}>
+                {z.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+
+      <section className="glass-card p-5 space-y-4">
         <h2 className="text-sm text-whisper">cozy hour reminder</h2>
         <label className="flex items-center justify-between">
           <span className="text-sm text-ink">gentle daily ping</span>
@@ -78,7 +139,8 @@ export default function SettingsPage() {
               await update({ notifications_enabled: checked });
               if (checked) {
                 const ok = await requestNotificationPermission();
-                if (ok) scheduleCozyHourReminder(profile?.cozy_hour ?? "21:00");
+                if (ok)
+                  scheduleCozyHourReminder(profile?.cozy_hour ?? "21:00", timezone);
               }
             }}
             className="w-11 h-6 rounded-full bg-beige data-[state=checked]:bg-sage relative"
@@ -89,7 +151,12 @@ export default function SettingsPage() {
         <input
           type="time"
           defaultValue={profile?.cozy_hour?.slice(0, 5) ?? "21:00"}
-          onChange={(e) => update({ cozy_hour: e.target.value })}
+          onChange={(e) => {
+            update({ cozy_hour: e.target.value });
+            if (profile?.notifications_enabled) {
+              scheduleCozyHourReminder(e.target.value, timezone);
+            }
+          }}
           className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-ink"
         />
       </section>
