@@ -45,3 +45,15 @@ public/workbox-*.js
 public/fallback-*.js
 
 .vercel
+
+# Capacitor — native build artifacts (keep config and project source files)
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/build/
+ios/DerivedData/
+android/.gradle/
+android/app/build/
+android/build/
+android/.idea/
+# ios/ and android/ project folders are intentionally tracked in git;
+# only compiled/generated output is excluded above.

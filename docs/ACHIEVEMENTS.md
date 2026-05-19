@@ -1,6 +1,7 @@
 # Bloomlog — End-to-End Achievement Document
 
-**Last updated:** May 2026  
+**Last updated:** 20 May 2026  
+**Latest production commit:** `958dc5c` (deployed to Vercel)  
 **Production:** https://bloomlog-six.vercel.app  
 **Repository:** https://github.com/yuv008/BloomLog  
 **Supabase project:** `curzpvrglfdlujvffvex` (region: `ap-south-1`)
@@ -77,46 +78,48 @@ Wrapped by `(app)/layout.tsx`: max-width mobile shell, bottom nav when onboardin
    - Persisted on `daily_entries.mood`
 
 3. **Whispers**
-   - ~80-line static library (`lib/whispers/library.ts`)
-   - Client picker with triggers (default, stormy, rainy, low water, etc.)
-   - Slide-in `WhisperCard` on dashboard with frequency caps via `use-whisper`
+   - 80-line static library (`lib/whispers/library.ts`)
+   - Client picker with triggers (default, stormy, rainy, low water, monday, shelf, quest_streak)
+   - **In-flow banner** at top of Today scroll (not `position: fixed`) so it does not cover mood/water controls
+   - Max **one whisper per day**; **one fetch per visit** (`use-whisper` ref guard — no re-show on mood/water/quest changes)
+   - Auto-dismiss after 5s or tap to close
 
 4. **Water bottle**
    - Visual fill toward 2L goal; tap +250ml; long-press opens custom amount sheet
    - Petal burst animation at 100% goal
    - Optional `navigator.vibrate` on tap
 
-5. **Spend bubbles (today)**
+5. **Spend bubbles + monthly view (single card)**
    - 6 categories: food, cafe, treats, travel, gifts, shopping
-   - Floating bubble visualization per expense; tap for polaroid-style detail
-   - Number wheel for amount entry; no typing required for quick log
+   - **Today:** floating bubble visualization; tap for polaroid-style detail; number wheel for amounts
+   - Header shows `₹X today · no judgment`
+   - **This month (collapsible):** divider below “+ log spend”; tap **“this month, softly”** to expand
+   - Collapsed row shows month total hint (e.g. `₹4,830 across 3 places`) when data exists
+   - Expanded: donut chart (`MonthlySpendPanel`) + category legend with % and ₹
+   - `getExpensesForMonth()` aggregates by calendar month (Supabase range query or localStorage date keys)
 
-6. **Monthly spend chart** *(recent, local branch)*
-   - Donut chart + legend: “this month, softly”
-   - Aggregates all expenses in current calendar month by category
-   - Shown below today’s spend card when finance is enabled
-
-7. **Meal polaroids**
+6. **Meal polaroids**
    - Tag-based logging (no typing flow); optional photo URL field in schema
    - Timeline on dashboard
 
-8. **Sleep tracker**
+7. **Sleep tracker**
    - Circular dial UI; start/end times; quality (deep, okay, restless, stormy)
    - Stored on `daily_entries`
 
-9. **Tiny quests**
+8. **Tiny quests**
    - Pool of 20 quests; deterministic daily pick of 3 per user/date
    - Completion triggers petal animation + **garden item reward** (see Garden)
    - Rare seed roll for rare decor items
 
-10. **One-line note**
+9. **One-line note**
     - Optional daily note on `daily_entries.note`
 
 ### 4.2 Garden (`/garden`)
 
 - **Room theme** from onboarding (windowsill / balcony / reading nook)
 - **Shelf scene** with soft gradient and ledge
-- **Empty state copy** explaining that tiny quests add decor; long-press for stories
+- **Empty state:** “your shelf is resting” + copy that tiny quests on Today add decor (no rush)
+- **With items:** count line (“3 pieces from your gentle days”) + long-press hint for stories
 - **Garden items** (8 types): sage bloom, blush rose, moon lamp, teacup, hanging light, fern, star jar, sleeping cat (some rare)
 - Items positioned with `x`, `y`, `layer`; gentle float animation
 - **Origin stories** via context menu / long-press (glass card overlay)
@@ -187,7 +190,8 @@ Wrapped by `(app)/layout.tsx`: max-width mobile shell, bottom nav when onboardin
 
 - Single API surface for profile, daily entry, expenses (day + month), meals, quests, garden, polaroids, whispers
 - Supabase attempt first when applicable; **always falls back to `localStore`** on error or guest mode
-- React Query hooks in `hooks/use-bloom-data.ts` with cache patch helpers for instant UI updates
+- React Query hooks in `hooks/use-bloom-data.ts` with `usePatchDailyCache`, `useMonthlyExpenses`, etc.
+- `setQueryData` after mood/water writes for instant UI (avoids stale refetch overwriting local data)
 
 ### 6.2 Local storage keys (`bloomlog_` prefix)
 
@@ -273,7 +277,8 @@ Optional API route: `POST /api/setup/enable-anonymous` (needs `SUPABASE_ACCESS_T
 | `c0869f0` | Production URLs + Supabase auth setup docs |
 | `20adb21` | Fix: localStorage path when anonymous auth fails |
 | `6185ac5` | Fix: clear stale sessions, React Query cache updates, profile/onboarding loop |
-| *(uncommitted)* | Garden empty-state copy, monthly donut chart |
+| `ca52a42` | Monthly spend chart, garden empty-state copy, `docs/ACHIEVEMENTS.md` |
+| `958dc5c` | In-flow whispers; monthly chart nested in spend card (collapsible) |
 
 ### 8.4 Developer tooling
 
@@ -310,6 +315,14 @@ Optional API route: `POST /api/setup/enable-anonymous` (needs `SUPABASE_ACCESS_T
 - **Without** anonymous auth: full functionality in-browser via `localStorage` (per device).
 - **With** anonymous auth enabled: sync to Supabase + RLS for multi-device persistence.
 
+### 9.5 UI fixes (post-launch)
+
+| Issue | Fix (`958dc5c`) |
+|-------|------------------|
+| Top whisper banner covered mood/water (fixed overlay) | `WhisperCard` moved in-flow; no `fixed` + high z-index |
+| Whisper text kept changing on interactions | `useWhisper` runs once per visit; dismiss does not clear daily cap incorrectly |
+| Monthly chart felt abrupt as second full card | Merged into `SpendBubblesCard` as collapsible “this month, softly” section |
+
 ---
 
 ## 10. End-to-end flows (reference)
@@ -333,7 +346,8 @@ Add water → upsert water_ml
 Optional: log spend, meal, sleep
 Complete tiny quest → quest_completions + random garden_item
 Optional: one-line note
-Whispers may appear based on triggers
+Optional: expand "this month, softly" inside spend card
+Whisper may appear once (in-flow, top of Today)
 ```
 
 ### 10.3 Garden reward
@@ -349,9 +363,10 @@ completeQuest()
 ### 10.4 Monthly finance view
 
 ```
-getExpensesForMonth(userId, yyyy-MM)
-  → aggregate by category
-  → MonthlySpendChart (donut + legend)
+User taps "this month, softly" in spend card
+  → getExpensesForMonth(userId, yyyy-MM)  [useMonthlyExpenses hook]
+  → aggregateExpensesByCategory()
+  → MonthlySpendPanel (donut + legend, animated expand)
 ```
 
 ---
@@ -395,16 +410,34 @@ Local development: copy to `.env.local` (gitignored).
 1. **Local:** `npm install && npm run dev` → http://localhost:3000  
 2. Complete onboarding → dashboard interactions (mood, +250ml, quest, spend).  
 3. **Garden:** complete a quest → item appears; empty state shows guidance copy.  
-4. **Month chart:** log spends across days in same month → donut on Today tab.  
-5. **Production:** hard-refresh https://bloomlog-six.vercel.app (or incognito).  
-6. **Supabase:** enable anonymous sign-ins + redirect URLs → redeploy not required for client-only change; new sessions sync to DB.
+4. **Month chart:** log spends → open spend card → expand “this month, softly”.  
+5. **Whispers:** at most one gentle line per day; should not block taps on mood/water.  
+6. **Production:** hard-refresh https://bloomlog-six.vercel.app (or incognito; clear PWA cache if stale).  
+7. **Supabase:** enable anonymous sign-ins + redirect URLs → new sessions sync to DB without redeploy.
 
 ---
 
-## 14. Summary
+## 14. Key source files (quick reference)
 
-Bloomlog is a **production-deployed PWA** with a complete **daily ritual loop** (mood, water, finance, food, sleep, quests), a **reward garden**, **memory shelf**, **recipe nook**, **settings/export/delete**, and a **dual-layer data system** (Supabase + localStorage) resilient to auth misconfiguration. Critical production bugs around guest mode and React Query caching have been addressed. Remaining work is mainly **operational** (Supabase anonymous auth, preview env vars), **content/ops** (alpha study), and **nice-to-have** features (bloom progression, R2 photos, full edge-function integration).
+| Area | Files |
+|------|--------|
+| Auth / guest fallback | `src/lib/data/auth.ts` |
+| Data API | `src/lib/data/api.ts` |
+| Local storage | `src/lib/storage/local.ts` |
+| Today page | `src/app/(app)/dashboard/page.tsx` |
+| Spend + month UI | `src/components/finance/spend-bubbles.tsx`, `monthly-spend-chart.tsx` |
+| Whispers | `src/hooks/use-whisper.ts`, `src/components/whispers/whisper-card.tsx` |
+| Garden | `src/components/garden/garden-room.tsx` |
+| Achievements doc | `docs/ACHIEVEMENTS.md` |
 
 ---
 
-*For setup commands and links, see the root [README.md](../README.md).*
+## 15. Summary
+
+Bloomlog is a **production-deployed PWA** (https://bloomlog-six.vercel.app, commit `958dc5c`) with a complete **daily ritual loop** (mood, water, finance with today + collapsible month view, food, sleep, quests), a **reward garden** with guided empty states, **memory shelf**, **recipe nook**, **settings/export/delete**, and a **dual-layer data system** (Supabase + localStorage) resilient to auth misconfiguration.
+
+Shipped fixes include guest-mode data routing, React Query cache updates, onboarding loop prevention, non-blocking whispers, and integrated monthly spend UX. Remaining work is mainly **operational** (enable Supabase anonymous auth, preview env vars), **content/ops** (alpha study), and **nice-to-have** features (bloom stage progression, R2 meal photos, full edge-function recap wiring).
+
+---
+
+*For setup commands and links, see the root [README.md](../README.md). For the product roadmap and phased ideas, see [ROADMAP.md](./ROADMAP.md).*
