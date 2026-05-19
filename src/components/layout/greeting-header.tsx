@@ -16,6 +16,13 @@ export function GreetingHeader({ name }: { name?: string | null }) {
         </p>
         <p className="text-sm text-whisper mt-0.5">a quiet minute for today</p>
       </div>
+      <Link
+        href="/settings"
+        className="rounded-full p-2 text-whisper hover:bg-beige/40 transition-colors"
+        aria-label="settings"
+      >
+        <Settings className="h-5 w-5" strokeWidth={1.5} />
+      </Link>
     </header>
   );
 }
