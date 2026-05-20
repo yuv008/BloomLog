@@ -65,6 +65,61 @@ export function useMeals(userId: string | null) {
   });
 }
 
+export function useFoodLog(userId: string | null) {
+  const { date } = useRitualDateKeys();
+  return useQuery({
+    queryKey: ["foodLog", userId, date],
+    queryFn: () => (userId ? api.getFoodLog(userId, date) : []),
+    enabled: !!userId,
+  });
+}
+
+export function useNutritionSummary(userId: string | null) {
+  const { date } = useRitualDateKeys();
+  return useQuery({
+    queryKey: ["nourish", "summary", userId, date],
+    queryFn: () => (userId ? api.getDailyNutritionSummary(userId, date) : null),
+    enabled: !!userId,
+  });
+}
+
+export function useFoodFavorites(userId: string | null) {
+  return useQuery({
+    queryKey: ["foodFavorites", userId],
+    queryFn: () => (userId ? api.getFoodFavorites(userId) : []),
+    enabled: !!userId,
+  });
+}
+
+export function useAiRecipes(userId: string | null) {
+  return useQuery({
+    queryKey: ["aiRecipes", userId],
+    queryFn: () => (userId ? api.getAiRecipes(userId) : []),
+    enabled: !!userId,
+  });
+}
+
+export function useHydrationStreak(userId: string | null) {
+  return useQuery({
+    queryKey: ["hydrationStreak", userId],
+    queryFn: () => (userId ? api.getHydrationStreak(userId) : 0),
+    enabled: !!userId,
+  });
+}
+
+export function useInvalidateNourish() {
+  const qc = useQueryClient();
+  const { date } = useRitualDateKeys();
+  return (userId: string) => {
+    qc.invalidateQueries({ queryKey: ["foodLog", userId, date] });
+    qc.invalidateQueries({ queryKey: ["nourish", "summary", userId, date] });
+    qc.invalidateQueries({ queryKey: ["meals", userId, date] });
+    qc.invalidateQueries({ queryKey: ["foodFavorites", userId] });
+    qc.invalidateQueries({ queryKey: ["aiRecipes", userId] });
+    qc.invalidateQueries({ queryKey: ["hydrationStreak", userId] });
+  };
+}
+
 export function useQuests(userId: string | null) {
   const { date } = useRitualDateKeys();
   return useQuery({
@@ -120,6 +175,9 @@ export function useInvalidateRitualQueries() {
     qc.invalidateQueries({ queryKey: ["expenses", userId] });
     qc.invalidateQueries({ queryKey: ["expenses-month", userId] });
     qc.invalidateQueries({ queryKey: ["meals", userId] });
+    qc.invalidateQueries({ queryKey: ["foodLog", userId] });
+    qc.invalidateQueries({ queryKey: ["nourish", "summary", userId] });
+    qc.invalidateQueries({ queryKey: ["hydrationStreak", userId] });
     qc.invalidateQueries({ queryKey: ["quests", userId] });
     qc.invalidateQueries({ queryKey: ["journal", userId] });
   };

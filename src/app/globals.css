@@ -8,6 +8,9 @@
   --lavender-gray: #b8b2c0;
   --ink: #3a3530;
   --whisper: #8a847c;
+  --honey: #e8c9a0;
+  --mist: #d4e4e0;
+  --petal-rose: #f0d4d0;
   --background: var(--cream);
   --foreground: var(--ink);
   --card: rgba(251, 247, 240, 0.72);
@@ -42,6 +45,9 @@
   --color-lavender-gray: var(--lavender-gray);
   --color-ink: var(--ink);
   --color-whisper: var(--whisper);
+  --color-honey: var(--honey);
+  --color-mist: var(--mist);
+  --color-petal-rose: var(--petal-rose);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);

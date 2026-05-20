@@ -15,6 +15,9 @@ export const GARDEN_ITEMS: GardenItemDef[] = [
   { key: "fern", name: "quiet fern", story: "from walking outside", emoji: "🪴" },
   { key: "star_jar", name: "star jar", story: "from a dreamy evening", emoji: "⭐", rare: true },
   { key: "sleeping_cat", name: "sleeping cat", story: "a rare cozy gift", emoji: "🐱", rare: true },
+  { key: "kitchen_pitcher", name: "kitchen pitcher", story: "from a week of gentle sips", emoji: "🫖" },
+  { key: "herb_pot", name: "herb pot", story: "from cooking at home", emoji: "🌿" },
+  { key: "wooden_spoon", name: "wooden spoon", story: "from nourishing yourself", emoji: "🥄", rare: true },
 ];
 
 export function getGardenItem(key: string): GardenItemDef | undefined {

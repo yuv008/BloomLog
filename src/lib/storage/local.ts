@@ -1,8 +1,11 @@
 "use client";
 
 import type {
+  AiRecipe,
   DailyEntry,
   Expense,
+  FoodFavorite,
+  FoodLogEntry,
   GardenItem,
   JournalLetter,
   Meal,
@@ -11,6 +14,7 @@ import type {
   UserProfile,
   WhisperLog,
 } from "@/lib/types";
+import { todayKey } from "@/lib/dates";
 
 const PREFIX = "bloomlog_";
 
@@ -88,6 +92,61 @@ export const localStore = {
     all[meal.date] = [...list, meal];
     write("meals", all);
   },
+  getFoodLog(date: string): FoodLogEntry[] {
+    const all = read<Record<string, FoodLogEntry[]>>("food_log", {});
+    return all[date] ?? [];
+  },
+  addFoodLog(entry: FoodLogEntry) {
+    const all = read<Record<string, FoodLogEntry[]>>("food_log", {});
+    const list = all[entry.date] ?? [];
+    all[entry.date] = [...list, entry];
+    write("food_log", all);
+  },
+  removeFoodLog(id: string, date: string) {
+    const all = read<Record<string, FoodLogEntry[]>>("food_log", {});
+    all[date] = (all[date] ?? []).filter((e) => e.id !== id);
+    write("food_log", all);
+  },
+  getAllFoodLogNames(): string[] {
+    const all = read<Record<string, FoodLogEntry[]>>("food_log", {});
+    const names: string[] = [];
+    for (const list of Object.values(all)) {
+      for (const e of list) {
+        if (!names.includes(e.name)) names.push(e.name);
+      }
+    }
+    return names;
+  },
+  getFoodFavorites(): FoodFavorite[] {
+    return read("food_favorites", []);
+  },
+  addFoodFavorite(fav: FoodFavorite) {
+    const list = read<FoodFavorite[]>("food_favorites", []);
+    write("food_favorites", [...list.filter((f) => f.name !== fav.name), fav]);
+  },
+  removeFoodFavorite(id: string) {
+    const list = read<FoodFavorite[]>("food_favorites", []);
+    write(
+      "food_favorites",
+      list.filter((f) => f.id !== id)
+    );
+  },
+  getAiRecipes(): AiRecipe[] {
+    return read("ai_recipes", []);
+  },
+  addAiRecipe(recipe: AiRecipe) {
+    const list = read<AiRecipe[]>("ai_recipes", []);
+    write("ai_recipes", [recipe, ...list]);
+  },
+  getHydrationHistory(days: number): Pick<DailyEntry, "date" | "water_ml">[] {
+    const all = read<Record<string, DailyEntry>>("daily", {});
+    const today = todayKey();
+    return Object.values(all)
+      .filter((e) => e.date <= today)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, days)
+      .map((e) => ({ date: e.date, water_ml: e.water_ml }));
+  },
   getQuests(date: string): QuestCompletion[] {
     const all = read<Record<string, QuestCompletion[]>>("quests", {});
     return all[date] ?? [];
@@ -143,6 +202,9 @@ export const localStore = {
       daily: read("daily", {}),
       expenses: read("expenses", {}),
       meals: read("meals", {}),
+      food_log: read("food_log", {}),
+      food_favorites: read("food_favorites", []),
+      ai_recipes: read("ai_recipes", []),
       quests: read("quests", {}),
       garden: read("garden", []),
       polaroids: read("polaroids", []),

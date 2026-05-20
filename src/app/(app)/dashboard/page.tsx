@@ -6,7 +6,7 @@ import { MoodSkyBackground, MoodCarousel } from "@/components/mood/mood-sky";
 import { GreetingHeader } from "@/components/layout/greeting-header";
 import { WaterBottleCard } from "@/components/water/water-bottle";
 import { SpendBubblesCard } from "@/components/finance/spend-bubbles";
-import { MealTimelineCard } from "@/components/food/meal-timeline";
+import { NourishStrip } from "@/components/food/nourish-strip";
 import { TinyQuestsCard } from "@/components/quests/tiny-quests";
 import { SleepTrackerCard } from "@/components/sleep/sleep-tracker";
 import { WhisperCard } from "@/components/whispers/whisper-card";
@@ -18,7 +18,7 @@ import {
   useDaily,
   useExpenses,
   useMonthlyExpenses,
-  useMeals,
+  useNutritionSummary,
   useQuests,
   useInvalidateDaily,
   usePatchDailyCache,
@@ -28,7 +28,7 @@ import { useWhisper } from "@/hooks/use-whisper";
 import { useUiStore } from "@/stores/use-ui-store";
 import * as api from "@/lib/data/api";
 import { trackEvent } from "@/lib/analytics/posthog";
-import type { Mood, ExpenseCategory, FoodTag, SleepQuality } from "@/lib/types";
+import type { Mood, ExpenseCategory, SleepQuality } from "@/lib/types";
 
 export default function DashboardPage() {
   const userId = useUserId();
@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const { data: daily } = useDaily(userId);
   const { data: expenses = [] } = useExpenses(userId);
   const { data: monthlyExpenses = [] } = useMonthlyExpenses(userId);
-  const { data: meals = [] } = useMeals(userId);
+  const { data: nutrition } = useNutritionSummary(userId);
   const { data: quests = [] } = useQuests(userId);
   const invalidate = useInvalidateDaily();
   const patchDaily = usePatchDailyCache();
@@ -58,7 +58,8 @@ export default function DashboardPage() {
       qc.invalidateQueries({ queryKey: ["daily", userId, date] });
       qc.invalidateQueries({ queryKey: ["expenses", userId, date] });
       qc.invalidateQueries({ queryKey: ["expenses-month", userId, month] });
-      qc.invalidateQueries({ queryKey: ["meals", userId, date] });
+      qc.invalidateQueries({ queryKey: ["foodLog", userId, date] });
+      qc.invalidateQueries({ queryKey: ["nourish", "summary", userId, date] });
       qc.invalidateQueries({ queryKey: ["quests", userId, date] });
     }
   }, [userId, qc, date, month]);
@@ -111,13 +112,18 @@ export default function DashboardPage() {
           />
         )}
 
-        <MealTimelineCard
-          meals={meals}
-          onAdd={async (tags: FoodTag[], photo) => {
-            await api.addMeal(userId, tags, photo, date);
-            trackEvent("meal_logged");
-            refresh();
-          }}
+        <NourishStrip
+          summary={
+            nutrition ?? {
+              calories: 0,
+              protein_g: 0,
+              carbs_g: 0,
+              fat_g: 0,
+              meal_count: 0,
+            }
+          }
+          waterMl={daily?.water_ml ?? 0}
+          waterGoal={profile?.water_goal_ml ?? 2000}
         />
 
         <SleepTrackerCard

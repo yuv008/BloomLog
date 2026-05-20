@@ -25,6 +25,10 @@ import type {
 } from "@/lib/types";
 import { pickDailyQuests, isRareSeedRoll } from "@/lib/quests/pool";
 import { randomGardenReward } from "@/lib/garden/items";
+import * as foodLog from "@/lib/data/food-log";
+import { maybeAwardHerbPot } from "@/lib/data/health-rewards";
+
+export type { AddFoodLogInput } from "@/lib/data/food-log";
 
 function uid() {
   return crypto.randomUUID();
@@ -71,6 +75,11 @@ function normalizeProfile(profile: UserProfile): UserProfile {
     ...profile,
     currency: normalizeCurrency(profile.currency),
     timezone: normalizeTimezone(profile.timezone),
+    health_enabled: profile.health_enabled ?? true,
+    water_goal_ml: profile.water_goal_ml ?? 2000,
+    macro_style: profile.macro_style ?? "balanced",
+    calorie_display: profile.calorie_display ?? "soft",
+    health_onboarding_done: profile.health_onboarding_done ?? false,
   };
 }
 
@@ -89,6 +98,12 @@ export async function upsertProfile(
     finance_enabled: true,
     currency: defaults.currency,
     timezone: defaults.timezone,
+    health_enabled: true,
+    soft_calorie_target: null,
+    water_goal_ml: 2000,
+    macro_style: "balanced",
+    calorie_display: "soft",
+    health_onboarding_done: false,
     created_at: new Date().toISOString(),
   };
   const merged = normalizeProfile({ ...existing, ...patch, id: userId });
@@ -166,7 +181,17 @@ export async function addWater(userId: string, ml: number, date?: string) {
   const d = await todayForUser(userId, date);
   const entry = await getDailyEntry(userId, d);
   const water_ml = (entry?.water_ml ?? 0) + ml;
-  return upsertDailyEntry(userId, { water_ml, date: d });
+  const result = await upsertDailyEntry(userId, { water_ml, date: d });
+  const profile = await getProfile(userId);
+  const goal = profile?.water_goal_ml ?? 2000;
+  const quests = await getQuestCompletions(userId, d);
+  if (water_ml >= goal && !quests.some((q) => q.quest_key === "water_enough")) {
+    await completeQuest(userId, "water_enough", d);
+  }
+  if (water_ml >= 750 && !quests.some((q) => q.quest_key === "hydrate_3")) {
+    await completeQuest(userId, "hydrate_3", d);
+  }
+  return result;
 }
 
 export async function setNote(userId: string, note: string) {
@@ -272,24 +297,59 @@ export async function addMeal(
   photo_url?: string | null,
   date?: string
 ) {
-  const meal: Meal = {
-    id: uid(),
-    user_id: userId,
-    date: await todayForUser(userId, date),
-    meal_time: new Date().toISOString(),
+  const entry = await addFoodLog(userId, {
+    meal_slot: "snack",
+    name: "polaroid meal",
+    emotional_tags: tags,
     photo_url: photo_url ?? null,
-    tags,
-  };
+    source: "polaroid",
+    date,
+  });
+  return {
+    id: entry.id,
+    user_id: entry.user_id,
+    date: entry.date,
+    meal_time: entry.logged_at,
+    photo_url: entry.photo_url,
+    tags: entry.emotional_tags,
+  } satisfies Meal;
+}
 
-  if (shouldUseSupabase(userId)) {
-    const supabase = createClient()!;
-    const { error } = await supabase.from("meals").insert(meal);
-    if (!error) return meal;
-    console.warn("[bloomlog] meal insert:", error.message);
+export const getFoodLog = foodLog.getFoodLog;
+export const deleteFoodLog = foodLog.deleteFoodLog;
+export const getDailyNutritionSummary = foodLog.getDailyNutritionSummary;
+export const getFoodFavorites = foodLog.getFoodFavorites;
+export const toggleFoodFavorite = foodLog.toggleFoodFavorite;
+export const getRecentFoodNames = foodLog.getRecentFoodNames;
+export const saveAiRecipe = foodLog.saveAiRecipe;
+export const getAiRecipes = foodLog.getAiRecipes;
+export const getAiRecipeById = foodLog.getAiRecipeById;
+export const getHydrationStreak = foodLog.getHydrationStreak;
+
+export async function addFoodLog(
+  userId: string,
+  input: foodLog.AddFoodLogInput
+) {
+  const entry = await foodLog.addFoodLog(userId, input);
+  const d = entry.date;
+  if (input.meal_slot === "breakfast") {
+    await completeQuest(userId, "log_breakfast", d);
   }
-
-  localStore.addMeal(meal);
-  return meal;
+  if (input.emotional_tags?.includes("homemade") || input.source === "recipe") {
+    await completeQuest(userId, "homemade", d);
+    const log = await foodLog.getFoodLog(userId, d);
+    const homemadeN = log.filter(
+      (e) =>
+        e.emotional_tags.includes("homemade") ||
+        e.source === "recipe" ||
+        e.source === "polaroid" && e.emotional_tags.includes("homemade")
+    ).length;
+    await maybeAwardHerbPot(userId, homemadeN);
+  }
+  if (input.source === "recipe" || input.name.toLowerCase().includes("cook")) {
+    await completeQuest(userId, "cook_at_home", d);
+  }
+  return entry;
 }
 
 export async function getQuestCompletions(
@@ -310,6 +370,10 @@ export async function getQuestCompletions(
 
 export async function completeQuest(userId: string, questKey: string, date?: string) {
   const resolvedDate = await todayForUser(userId, date);
+  const existing = await getQuestCompletions(userId, resolvedDate);
+  if (existing.some((c) => c.quest_key === questKey)) {
+    return { completion: existing.find((c) => c.quest_key === questKey)!, rare: false };
+  }
   const q: QuestCompletion = {
     id: uid(),
     user_id: userId,
@@ -496,12 +560,13 @@ export async function exportUserData(userId: string) {
     return localStore.exportAll();
   }
   const supabase = createClient()!;
-  const [profile, daily, expenses, meals, quests, garden, polaroids, whispers, letters] =
+  const [profile, daily, expenses, meals, foodLog, quests, garden, polaroids, whispers, letters] =
     await Promise.all([
       getProfile(userId),
       supabase.from("daily_entries").select("*").eq("user_id", userId),
       supabase.from("expenses").select("*").eq("user_id", userId),
       supabase.from("meals").select("*").eq("user_id", userId),
+      supabase.from("food_log_entries").select("*").eq("user_id", userId),
       supabase.from("quest_completions").select("*").eq("user_id", userId),
       getGardenItems(userId),
       getPolaroids(userId),
@@ -513,6 +578,7 @@ export async function exportUserData(userId: string) {
     daily: daily.data,
     expenses: expenses.data,
     meals: meals.data,
+    food_log: foodLog.data,
     quests: quests.data,
     garden,
     polaroids,
@@ -531,6 +597,10 @@ export async function deleteAllUserData(userId: string) {
       supabase.from("garden_items").delete().eq("user_id", userId),
       supabase.from("quest_completions").delete().eq("user_id", userId),
       supabase.from("meals").delete().eq("user_id", userId),
+      supabase.from("food_log_entries").delete().eq("user_id", userId),
+      supabase.from("food_favorites").delete().eq("user_id", userId),
+      supabase.from("ai_recipes").delete().eq("user_id", userId),
+      supabase.from("health_insights").delete().eq("user_id", userId),
       supabase.from("expenses").delete().eq("user_id", userId),
       supabase.from("daily_entries").delete().eq("user_id", userId),
       supabase.from("users_profile").delete().eq("id", userId),

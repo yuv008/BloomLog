@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Flower2, Image, BookOpen } from "lucide-react";
+import { Home, Flower2, Image, UtensilsCrossed } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/dashboard", label: "today", icon: Home },
   { href: "/garden", label: "garden", icon: Flower2 },
   { href: "/shelf", label: "shelf", icon: Image },
-  { href: "/recipes", label: "recipes", icon: BookOpen },
+  { href: "/nourish", label: "nourish", icon: UtensilsCrossed },
 ];
 
 export function BottomNav() {

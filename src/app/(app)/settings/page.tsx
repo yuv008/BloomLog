@@ -39,6 +39,8 @@ export default function SettingsPage() {
     qc.invalidateQueries({ queryKey: ["expenses", userId] });
     qc.invalidateQueries({ queryKey: ["expenses-month", userId] });
     qc.invalidateQueries({ queryKey: ["meals", userId] });
+    qc.invalidateQueries({ queryKey: ["foodLog", userId] });
+    qc.invalidateQueries({ queryKey: ["nourish", "summary", userId] });
     qc.invalidateQueries({ queryKey: ["quests", userId] });
     qc.invalidateQueries({ queryKey: ["journal", userId] });
   };
@@ -159,6 +161,54 @@ export default function SettingsPage() {
           }}
           className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-ink"
         />
+      </section>
+
+      <section className="glass-card p-5 space-y-4">
+        <h2 className="text-sm text-whisper">nourish</h2>
+        <label className="block space-y-2">
+          <span className="text-sm text-ink">calorie display</span>
+          <select
+            value={profile?.calorie_display ?? "soft"}
+            onChange={(e) =>
+              update({
+                calorie_display: e.target.value as "hidden" | "soft" | "open",
+                health_onboarding_done: true,
+              })
+            }
+            className="w-full max-w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-sm text-ink"
+          >
+            <option value="hidden">listening mode</option>
+            <option value="soft">soft guide</option>
+            <option value="open">open numbers</option>
+          </select>
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm text-ink">gentle daily guide (kcal)</span>
+          <input
+            type="number"
+            min={1200}
+            max={4000}
+            placeholder="optional"
+            value={profile?.soft_calorie_target ?? ""}
+            onChange={(e) => {
+              const v = e.target.value ? parseInt(e.target.value, 10) : null;
+              update({ soft_calorie_target: v });
+            }}
+            className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-ink"
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm text-ink">water goal (ml)</span>
+          <input
+            type="number"
+            min={1000}
+            max={4000}
+            step={250}
+            value={profile?.water_goal_ml ?? 2000}
+            onChange={(e) => update({ water_goal_ml: parseInt(e.target.value, 10) || 2000 })}
+            className="w-full rounded-[20px] border border-beige bg-cream/50 px-4 py-2 text-ink"
+          />
+        </label>
       </section>
 
       <section className="glass-card p-5 space-y-4">

@@ -7,6 +7,8 @@ const ALLOWED_EVENTS = [
   "quest_completed",
   "expense_logged",
   "meal_logged",
+  "food_logged",
+  "ai_recipe_saved",
   "onboarding_complete",
   "app_opened",
   "journal_written",
