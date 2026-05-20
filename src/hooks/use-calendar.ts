@@ -11,6 +11,7 @@ import {
   updateCalendarEvent,
   completeCalendarEvent,
   skipCalendarEvent,
+  archiveCalendarEvent,
   type CreateCalendarEventInput,
   type UpdateCalendarEventInput,
 } from "@/lib/data/calendar-client";
@@ -55,6 +56,16 @@ async function flushCalendarQueue(userId: string) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ date: item.payload.date }),
+        });
+      } else if (item.op === "update" && item.payload.id) {
+        await fetch(`/api/calendar/events/${item.payload.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.payload.patch),
+        });
+      } else if (item.op === "delete" && item.payload.id) {
+        await fetch(`/api/calendar/events/${item.payload.id}`, {
+          method: "DELETE",
         });
       }
     } catch {
@@ -133,13 +144,19 @@ export function useCalendarAgenda(userId: string | null, date: string) {
   return useQuery({
     queryKey: ["calendarAgenda", userId, date],
     queryFn: async () => {
-      if (!userId) return [];
+      if (!userId) return { items: [], openCount: 0 };
       if (shouldUseSupabase(userId)) {
         const res = await fetch(
           `/api/calendar/agenda?date=${encodeURIComponent(date)}`
         );
-        const json = (await res.json()) as { items: CalendarEvent[] };
-        return json.items ?? [];
+        const json = (await res.json()) as {
+          items: CalendarEvent[];
+          openCount?: number;
+        };
+        return {
+          items: json.items ?? [],
+          openCount: json.openCount ?? json.items?.length ?? 0,
+        };
       }
       return getCalendarAgenda(userId, date);
     },
@@ -272,6 +289,12 @@ export function useUpdateCalendarEvent(userId: string | null) {
         if (!res.ok) throw new Error(json.error ?? "update failed");
         return json.event;
       }
+      if (!navigator.onLine) {
+        localStore.queueCalendarOp("update", {
+          id,
+          patch: patch as unknown as Record<string, unknown>,
+        });
+      }
       return updateCalendarEvent(userId, id, patch);
     },
     onSettled: () => {
@@ -283,11 +306,67 @@ export function useUpdateCalendarEvent(userId: string | null) {
   });
 }
 
+export function useDeleteCalendarEvent(userId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!userId) throw new Error("not signed in");
+      if (shouldUseSupabase(userId) && navigator.onLine) {
+        const res = await fetch(`/api/calendar/events/${id}`, {
+          method: "DELETE",
+        });
+        const json = (await res.json()) as { ok?: boolean; error?: string };
+        if (!res.ok) throw new Error(json.error ?? "delete failed");
+        return;
+      }
+      if (!navigator.onLine) {
+        localStore.queueCalendarOp("delete", { id });
+      }
+      await archiveCalendarEvent(userId, id);
+    },
+    onSettled: () => {
+      if (!userId) return;
+      qc.invalidateQueries({ queryKey: ["calendar", userId] });
+      qc.invalidateQueries({ queryKey: ["calendarRange", userId] });
+      qc.invalidateQueries({ queryKey: ["calendarAgenda", userId] });
+    },
+  });
+}
+
+export function useCalendarEvent(userId: string | null, id: string | null) {
+  return useQuery({
+    queryKey: ["calendarEvent", userId, id],
+    queryFn: async () => {
+      if (!userId || !id) return null;
+      if (shouldUseSupabase(userId)) {
+        const res = await fetch(`/api/calendar/events/${id}`);
+        if (!res.ok) return null;
+        const json = (await res.json()) as { event: CalendarEvent };
+        return json.event ?? null;
+      }
+      const { getCalendarEventById } = await import("@/lib/data/calendar-client");
+      return getCalendarEventById(userId, id);
+    },
+    enabled: !!userId && !!id,
+    staleTime: 30_000,
+  });
+}
+
 export function useSkipCalendarEvent(userId: string | null, date: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       if (!userId) throw new Error("not signed in");
+      if (shouldUseSupabase(userId) && navigator.onLine) {
+        const res = await fetch(`/api/calendar/events/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "skipped" }),
+        });
+        const json = (await res.json()) as { event: CalendarEvent; error?: string };
+        if (!res.ok) throw new Error(json.error ?? "skip failed");
+        return json.event;
+      }
       return skipCalendarEvent(userId, id);
     },
     onSettled: () => {

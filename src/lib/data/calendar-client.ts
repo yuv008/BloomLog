@@ -4,6 +4,7 @@ import { localStore } from "@/lib/storage/local";
 import { todayKey, addDaysToRitualDate } from "@/lib/dates";
 import { filterEventsForRange } from "@/lib/data/calendar-event-query";
 import { expandRecurrenceInstances } from "@/lib/calendar/expand-recurrence";
+import { normalizeEventTiming } from "@/lib/calendar/event-timing";
 import type {
   CalendarEvent,
   CalendarCategory,
@@ -25,6 +26,16 @@ export type {
 
 function uid() {
   return crypto.randomUUID();
+}
+
+export async function getCalendarEventById(
+  userId: string,
+  id: string
+): Promise<CalendarEvent | null> {
+  const e = localStore
+    .getCalendarEvents()
+    .find((ev) => ev.user_id === userId && ev.id === id && ev.status !== "archived");
+  return e ?? null;
 }
 
 export async function getCalendarEventsRange(
@@ -83,12 +94,15 @@ export async function getCalendarAgenda(
   userId: string,
   date?: string,
   limit = 3
-): Promise<CalendarEvent[]> {
+): Promise<{ items: CalendarEvent[]; openCount: number }> {
   const day = await getCalendarDay(userId, date);
-  return day
+  const open = day
     .filter((e) => e.status === "open")
-    .sort((a, b) => a.priority - b.priority || a.position_order - b.position_order)
-    .slice(0, limit);
+    .sort((a, b) => a.priority - b.priority || a.position_order - b.position_order);
+  return {
+    items: open.slice(0, limit),
+    openCount: open.length,
+  };
 }
 
 export async function createCalendarEvent(
@@ -97,6 +111,16 @@ export async function createCalendarEvent(
 ): Promise<CalendarEvent> {
   const title = input.title?.trim();
   if (!title) throw new Error("title required");
+  const tz = localStore.getProfile()?.timezone;
+  const timing = normalizeEventTiming(
+    {
+      ritual_date: input.ritual_date,
+      all_day: input.all_day,
+      starts_at: input.starts_at,
+      ends_at: input.ends_at,
+    },
+    tz
+  );
   const now = new Date().toISOString();
   const event: CalendarEvent = {
     id: uid(),
@@ -106,9 +130,9 @@ export async function createCalendarEvent(
     notes: input.notes ?? null,
     category: input.category ?? "other",
     kind: input.kind ?? "task",
-    starts_at: input.starts_at ?? null,
-    ends_at: input.ends_at ?? null,
-    all_day: input.all_day ?? !input.starts_at,
+    starts_at: timing.starts_at,
+    ends_at: timing.ends_at,
+    all_day: timing.all_day,
     ritual_end_date: input.ritual_end_date ?? null,
     priority: input.priority ?? 1,
     status: "open",
@@ -131,18 +155,39 @@ export async function updateCalendarEvent(
   id: string,
   patch: UpdateCalendarEventInput
 ): Promise<CalendarEvent | null> {
-  const existing = localStore.getCalendarEvents().find(
-    (e) => e.user_id === userId && e.id === id
-  );
+  const existing = await getCalendarEventById(userId, id);
   if (!existing) return null;
+  const tz = localStore.getProfile()?.timezone;
+  const ritualDate = patch.ritual_date ?? existing.ritual_date;
+  const timing =
+    patch.all_day !== undefined || patch.starts_at !== undefined
+      ? normalizeEventTiming(
+          {
+            ritual_date: ritualDate,
+            all_day: patch.all_day ?? existing.all_day,
+            starts_at:
+              patch.starts_at !== undefined ? patch.starts_at : existing.starts_at,
+            ends_at: patch.ends_at !== undefined ? patch.ends_at : existing.ends_at,
+          },
+          tz
+        )
+      : null;
   const updated: CalendarEvent = {
     ...existing,
     ...patch,
+    ...(timing ?? {}),
     title: patch.title?.trim() ?? existing.title,
     updated_at: new Date().toISOString(),
   };
   localStore.upsertCalendarEvent(updated);
   return updated;
+}
+
+export async function archiveCalendarEvent(
+  userId: string,
+  id: string
+): Promise<void> {
+  await updateCalendarEvent(userId, id, { status: "archived" });
 }
 
 export async function completeCalendarEvent(
@@ -172,6 +217,7 @@ export async function createRoutineTemplate(
     title: string;
     category?: CalendarCategory;
     emoji?: string;
+    default_time?: string | null;
   }
 ): Promise<RoutineTemplate> {
   const tpl: RoutineTemplate = {
@@ -179,7 +225,7 @@ export async function createRoutineTemplate(
     user_id: userId,
     title: input.title,
     category: input.category ?? "ritual",
-    default_time: null,
+    default_time: input.default_time ?? null,
     emoji: input.emoji ?? "🌿",
     garden_reward_key: null,
     active: true,

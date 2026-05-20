@@ -9,6 +9,10 @@ import {
 import { randomGardenReward } from "@/lib/garden/items";
 import { isRareSeedRoll } from "@/lib/quests/pool";
 import { expandRecurrenceInstances } from "@/lib/calendar/expand-recurrence";
+import {
+  normalizeEventTiming,
+  buildStartsAtIso,
+} from "@/lib/calendar/event-timing";
 import { filterEventsForRange } from "@/lib/data/calendar-event-query";
 import type {
   CalendarEvent,
@@ -52,6 +56,35 @@ import type {
 
 function rowToEvent(row: Record<string, unknown>): CalendarEvent {
   return row as unknown as CalendarEvent;
+}
+
+const PATCHABLE_COLUMNS = [
+  "title",
+  "notes",
+  "category",
+  "starts_at",
+  "ends_at",
+  "all_day",
+  "ritual_date",
+  "ritual_end_date",
+  "priority",
+  "status",
+  "completed_at",
+  "position_order",
+  "updated_at",
+] as const;
+
+function pickPatchRow(
+  patch: UpdateCalendarEventInput & { updated_at: string }
+): Record<string, unknown> {
+  const row: Record<string, unknown> = { updated_at: patch.updated_at };
+  for (const key of PATCHABLE_COLUMNS) {
+    if (key === "updated_at") continue;
+    if (key in patch && patch[key as keyof typeof patch] !== undefined) {
+      row[key] = patch[key as keyof typeof patch];
+    }
+  }
+  return row;
 }
 
 export async function getCalendarEventById(
@@ -146,12 +179,15 @@ export async function getCalendarAgenda(
   userId: string,
   date?: string,
   limit = 3
-): Promise<CalendarEvent[]> {
+): Promise<{ items: CalendarEvent[]; openCount: number }> {
   const day = await getCalendarDay(userId, date);
-  return day
+  const open = day
     .filter((e) => e.status === "open")
-    .sort((a, b) => a.priority - b.priority || a.position_order - b.position_order)
-    .slice(0, limit);
+    .sort((a, b) => a.priority - b.priority || a.position_order - b.position_order);
+  return {
+    items: open.slice(0, limit),
+    openCount: open.length,
+  };
 }
 
 export async function createCalendarEvent(
@@ -169,6 +205,16 @@ export async function createCalendarEvent(
   ) {
     throw new Error("ritual_end_date before ritual_date");
   }
+  const tz = await profileTz(userId);
+  const timing = normalizeEventTiming(
+    {
+      ritual_date: input.ritual_date,
+      all_day: input.all_day,
+      starts_at: input.starts_at,
+      ends_at: input.ends_at,
+    },
+    tz
+  );
   const now = new Date().toISOString();
   const event: CalendarEvent = {
     id: uid(),
@@ -178,9 +224,9 @@ export async function createCalendarEvent(
     notes: input.notes ?? null,
     category: input.category ?? "other",
     kind: input.kind ?? "task",
-    starts_at: input.starts_at ?? null,
-    ends_at: input.ends_at ?? null,
-    all_day: input.all_day ?? !input.starts_at,
+    starts_at: timing.starts_at,
+    ends_at: timing.ends_at,
+    all_day: timing.all_day,
     ritual_end_date: input.ritual_end_date ?? null,
     priority: input.priority ?? 1,
     status: "open",
@@ -251,11 +297,13 @@ async function maybeScheduleSoftReminder(
   userId: string,
   event: CalendarEvent
 ) {
-  if (!event.starts_at) return;
+  if (!event.starts_at || !shouldUseSupabase(userId)) return;
   const remindAt = new Date(
     new Date(event.starts_at).getTime() - 15 * 60_000
   ).toISOString();
+  if (new Date(remindAt).getTime() <= Date.now()) return;
   const supabase = (await createClient())!;
+  await supabase.from("calendar_reminders").delete().eq("event_id", event.id);
   await supabase.from("calendar_reminders").insert({
     user_id: userId,
     event_id: event.id,
@@ -269,28 +317,65 @@ export async function updateCalendarEvent(
   id: string,
   patch: UpdateCalendarEventInput
 ): Promise<CalendarEvent | null> {
-  const existing = (await getCalendarEventsRange(userId, "1970-01-01", "2099-12-31")).find(
-    (e) => e.id === id
-  );
+  const existing = await getCalendarEventById(userId, id);
   if (!existing) return null;
+
+  const tz = await profileTz(userId);
+  const ritualDate = patch.ritual_date ?? existing.ritual_date;
+  const timing =
+    patch.all_day !== undefined || patch.starts_at !== undefined
+      ? normalizeEventTiming(
+          {
+            ritual_date: ritualDate,
+            all_day: patch.all_day ?? existing.all_day,
+            starts_at:
+              patch.starts_at !== undefined ? patch.starts_at : existing.starts_at,
+            ends_at: patch.ends_at !== undefined ? patch.ends_at : existing.ends_at,
+          },
+          tz
+        )
+      : null;
+
+  const startsChanged =
+    timing !== null && timing.starts_at !== existing.starts_at;
 
   const updated: CalendarEvent = {
     ...existing,
     ...patch,
+    ...(timing ?? {}),
     title: patch.title?.trim() ?? existing.title,
     updated_at: new Date().toISOString(),
   };
 
   if (shouldUseSupabase(userId)) {
     const supabase = (await createClient())!;
+    const row = pickPatchRow({
+      title: updated.title,
+      notes: updated.notes,
+      category: updated.category,
+      starts_at: updated.starts_at,
+      ends_at: updated.ends_at,
+      all_day: updated.all_day,
+      ritual_date: updated.ritual_date,
+      ritual_end_date: updated.ritual_end_date,
+      priority: updated.priority,
+      status: updated.status,
+      completed_at: updated.completed_at,
+      position_order: updated.position_order,
+      updated_at: updated.updated_at,
+    });
     const { data, error } = await supabase
       .from("calendar_events")
-      .update(updated)
+      .update(row)
       .eq("id", id)
       .eq("user_id", userId)
       .select()
       .single();
-    if (!error && data) return rowToEvent(data);
+    if (!error && data) {
+      const saved = rowToEvent(data);
+      if (startsChanged) await maybeScheduleSoftReminder(userId, saved);
+      return saved;
+    }
   }
   localStore.upsertCalendarEvent(updated);
   return updated;
@@ -424,12 +509,19 @@ export async function spawnRoutineForDate(
   const templates = await getRoutineTemplates(userId);
   const tpl = templates.find((t) => t.id === templateId);
   if (!tpl) return null;
+  const tz = await profileTz(userId);
+  const timeStr = tpl.default_time?.slice(0, 5) ?? null;
+  const starts_at =
+    timeStr && /^\d{2}:\d{2}$/.test(timeStr)
+      ? buildStartsAtIso(ritualDate, timeStr, tz)
+      : null;
   return createCalendarEvent(userId, {
     ritual_date: ritualDate,
     title: tpl.title,
     category: tpl.category,
     kind: "routine_instance",
-    all_day: !tpl.default_time,
+    all_day: !starts_at,
+    starts_at,
     source_meta: {
       garden_reward_key: tpl.garden_reward_key,
       routine_id: tpl.id,

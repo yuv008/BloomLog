@@ -27,6 +27,6 @@ export async function GET(req: Request) {
       date = todayKey(tz);
     }
   }
-  const items = await getCalendarAgenda(userId, date);
-  return NextResponse.json({ items });
+  const { items, openCount } = await getCalendarAgenda(userId, date);
+  return NextResponse.json({ items, openCount });
 }

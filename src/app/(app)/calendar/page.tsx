@@ -29,6 +29,7 @@ import {
   useCalendarMonthIndicators,
   useCalendarMonthMood,
   useCompleteCalendarEvent,
+  useCalendarEvent,
 } from "@/hooks/use-calendar";
 import { useCalendarUiStore } from "@/stores/use-calendar-ui-store";
 import { CalendarShell } from "@/components/calendar/calendar-shell";
@@ -50,6 +51,7 @@ export default function CalendarPage() {
   const selectedDate = useCalendarUiStore((s) => s.selectedDate);
   const sheetOpen = useCalendarUiStore((s) => s.sheetOpen);
   const editingId = useCalendarUiStore((s) => s.editingId);
+  const editingEvent = useCalendarUiStore((s) => s.editingEvent);
   const setView = useCalendarUiStore((s) => s.setView);
   const setSelectedDate = useCalendarUiStore((s) => s.setSelectedDate);
   const openSheet = useCalendarUiStore((s) => s.openSheet);
@@ -101,14 +103,32 @@ export default function CalendarPage() {
   const complete = useCompleteCalendarEvent(userId, dateForQueries);
   const bloom = useCalendarCompletionBloom();
 
+  const needsFetch = !!editingId && !editingEvent;
+  const { data: fetchedEvent, isLoading: fetchEventLoading } = useCalendarEvent(
+    userId,
+    needsFetch ? editingId : null
+  );
+
   const editing = useMemo(() => {
     if (!editingId) return null;
+    if (editingEvent?.id === editingId) return editingEvent;
     return (
       dayBundle?.events.find((e) => e.id === editingId) ??
       week.data?.find((e) => e.id === editingId) ??
+      monthRange.data?.find((e) => e.id === editingId) ??
+      fetchedEvent ??
       null
     );
-  }, [editingId, dayBundle, week.data]);
+  }, [
+    editingId,
+    editingEvent,
+    dayBundle,
+    week.data,
+    monthRange.data,
+    fetchedEvent,
+  ]);
+
+  const editingLoading = needsFetch && fetchEventLoading;
 
   const headerLabel = useMemo(() => {
     if (!effectiveDate) return "…";
@@ -164,7 +184,7 @@ export default function CalendarPage() {
   }
 
   function onEventTap(e: CalendarEvent) {
-    openSheet(e.id);
+    openSheet(e);
   }
 
   if (!userId) {
@@ -255,6 +275,7 @@ export default function CalendarPage() {
         userId={userId}
         ritualDate={effectiveDate}
         editing={editing}
+        editingLoading={editingLoading}
       />
     </>
   );

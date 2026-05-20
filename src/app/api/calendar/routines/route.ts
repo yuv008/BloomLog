@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     title?: string;
     category?: string;
     emoji?: string;
+    default_time?: string | null;
     spawn_date?: string;
     template_id?: string;
   };
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
     title: body.title,
     category: body.category as never,
     emoji: body.emoji,
+    default_time: body.default_time ?? null,
   });
   return NextResponse.json({ routine });
 }

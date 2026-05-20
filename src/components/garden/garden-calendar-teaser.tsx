@@ -7,8 +7,8 @@ import { useTodayKey } from "@/hooks/use-bloom-data";
 
 export function GardenCalendarTeaser({ userId }: { userId: string }) {
   const { date } = useTodayKey();
-  const { data: items = [] } = useCalendarAgenda(userId, date);
-  const open = items.filter((i) => i.status === "open").length;
+  const { data } = useCalendarAgenda(userId, date);
+  const open = data?.openCount ?? 0;
 
   return (
     <Link

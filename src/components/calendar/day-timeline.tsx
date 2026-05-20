@@ -27,8 +27,9 @@ export function DayTimeline({
   onEventTap,
   onComplete,
 }: Props) {
-  const allDay = events.filter((e) => e.all_day || !e.starts_at);
+  const allDay = events.filter((e) => e.all_day);
   const timed = events.filter((e) => !e.all_day && e.starts_at);
+  const untimed = events.filter((e) => !e.all_day && !e.starts_at);
 
   const byBucket = BUCKETS.map((b) => ({
     ...b,
@@ -66,11 +67,11 @@ export function DayTimeline({
         </section>
       )}
 
-      {allDay.length > 0 && (
+      {(allDay.length > 0 || untimed.length > 0) && (
         <section>
           <h3 className="mb-2 text-xs text-whisper">all day</h3>
           <div className="space-y-2">
-            {allDay.map((e) => (
+            {[...allDay, ...untimed].map((e) => (
               <EventCard
                 key={e.id}
                 event={e}

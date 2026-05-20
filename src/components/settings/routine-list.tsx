@@ -15,6 +15,8 @@ export function RoutineList({ userId }: { userId: string }) {
   const qc = useQueryClient();
   const { timezone } = useUserPreferences();
   const [title, setTitle] = useState("");
+  const [defaultTime, setDefaultTime] = useState("");
+  const [timed, setTimed] = useState(false);
   const { data: routines = [] } = useQuery({
     queryKey: ["calendarRoutines", userId],
     queryFn: async () => {
@@ -34,12 +36,20 @@ export function RoutineList({ userId }: { userId: string }) {
       await fetch("/api/calendar/routines", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() }),
+        body: JSON.stringify({
+          title: title.trim(),
+          default_time: timed && defaultTime ? defaultTime : null,
+        }),
       });
     } else {
-      await createRoutineTemplate(userId, { title: title.trim() });
+      await createRoutineTemplate(userId, {
+        title: title.trim(),
+        default_time: timed && defaultTime ? defaultTime : null,
+      });
     }
     setTitle("");
+    setDefaultTime("");
+    setTimed(false);
     qc.invalidateQueries({ queryKey: ["calendarRoutines", userId] });
   }
 
@@ -53,7 +63,12 @@ export function RoutineList({ userId }: { userId: string }) {
         {routines.map((r) => (
           <li key={r.id} className="flex items-center gap-2 text-sm text-ink">
             <span>{r.emoji}</span>
-            <span>{r.title}</span>
+            <span className="flex-1">{r.title}</span>
+            {r.default_time && (
+              <span className="text-xs text-whisper">
+                {r.default_time.slice(0, 5)}
+              </span>
+            )}
           </li>
         ))}
         {routines.length === 0 && (
@@ -71,6 +86,22 @@ export function RoutineList({ userId }: { userId: string }) {
           add
         </Button>
       </div>
+      <label className="flex items-center gap-2 text-xs text-whisper">
+        <input
+          type="checkbox"
+          checked={timed}
+          onChange={(e) => setTimed(e.target.checked)}
+        />
+        usually at a set time
+      </label>
+      {timed && (
+        <input
+          type="time"
+          value={defaultTime}
+          onChange={(e) => setDefaultTime(e.target.value)}
+          className="w-full rounded-xl border border-beige/50 bg-cream/50 px-3 py-2 text-sm"
+        />
+      )}
       <p className="text-[10px] text-whisper">
         today: {todayKey(timezone)} — add instances from the calendar tab
       </p>

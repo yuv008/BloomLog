@@ -12,7 +12,10 @@ import { useTodayKey } from "@/hooks/use-bloom-data";
 export function DayRhythmCard({ userId }: { userId: string }) {
   const { date } = useTodayKey();
   const { timezone } = useUserPreferences();
-  const { data: items = [], isLoading } = useCalendarAgenda(userId, date);
+  const { data, isLoading } = useCalendarAgenda(userId, date);
+  const items = data?.items ?? [];
+  const openCount = data?.openCount ?? items.length;
+  const moreCount = Math.max(0, openCount - items.length);
 
   return (
     <Card className="glass-card border-beige/30 p-4">
@@ -52,6 +55,15 @@ export function DayRhythmCard({ userId }: { userId: string }) {
           );
         })}
       </ul>
+
+      {moreCount > 0 && (
+        <Link
+          href="/calendar"
+          className="mt-2 block text-xs text-sage hover:text-ink"
+        >
+          +{moreCount} more on your calendar →
+        </Link>
+      )}
     </Card>
   );
 }

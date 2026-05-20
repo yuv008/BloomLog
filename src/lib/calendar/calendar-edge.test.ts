@@ -22,6 +22,11 @@ import {
 } from "@/lib/data/calendar-event-query";
 import { buildWellnessTimeline } from "@/lib/calendar/merge-wellness";
 import { formatEventTime } from "@/lib/calendar/format";
+import {
+  buildStartsAtIso,
+  parseTimeFromStartsAt,
+  normalizeEventTiming,
+} from "@/lib/calendar/event-timing";
 import type { CalendarEvent, RecurrenceRule } from "@/lib/types";
 
 function mockRule(partial: Partial<RecurrenceRule>): RecurrenceRule {
@@ -137,6 +142,40 @@ describe("shiftWeekByDelta", () => {
 describe("firstDayOfMonth", () => {
   it("returns first of month", () => {
     expect(firstDayOfMonth("2026-07")).toBe("2026-07-01");
+  });
+});
+
+describe("event-timing", () => {
+  it("buildStartsAtIso and parseTimeFromStartsAt round-trip in UTC", () => {
+    const iso = buildStartsAtIso("2026-06-15", "14:30", "UTC");
+    expect(parseTimeFromStartsAt(iso, "UTC")).toBe("14:30");
+  });
+
+  it("normalizeEventTiming clears times when all-day", () => {
+    expect(
+      normalizeEventTiming({
+        ritual_date: "2026-06-15",
+        all_day: true,
+        starts_at: "2026-06-15T10:00:00Z",
+      }).all_day
+    ).toBe(true);
+    expect(
+      normalizeEventTiming({
+        ritual_date: "2026-06-15",
+        all_day: true,
+        starts_at: "2026-06-15T10:00:00Z",
+      }).starts_at
+    ).toBeNull();
+  });
+
+  it("normalizeEventTiming defaults morning when timed without starts_at", () => {
+    const t = normalizeEventTiming(
+      { ritual_date: "2026-06-15", all_day: false },
+      "UTC"
+    );
+    expect(t.all_day).toBe(false);
+    expect(t.starts_at).toBeTruthy();
+    expect(parseTimeFromStartsAt(t.starts_at, "UTC")).toBe("09:00");
   });
 });
 
