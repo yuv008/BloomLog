@@ -24,6 +24,11 @@ import type {
   SleepQuality,
 } from "@/lib/types";
 import { pickDailyQuests, isRareSeedRoll } from "@/lib/quests/pool";
+import { buildQuestBoardState } from "@/lib/quests/quest-board";
+import {
+  hasQuestGardenGrantedToday,
+  markQuestGardenGrantedToday,
+} from "@/lib/quests/quest-garden";
 import { randomGardenReward } from "@/lib/garden/items";
 import * as foodLog from "@/lib/data/food-log";
 import { maybeAwardHerbPot } from "@/lib/data/health-rewards";
@@ -182,15 +187,7 @@ export async function addWater(userId: string, ml: number, date?: string) {
   const entry = await getDailyEntry(userId, d);
   const water_ml = (entry?.water_ml ?? 0) + ml;
   const result = await upsertDailyEntry(userId, { water_ml, date: d });
-  const profile = await getProfile(userId);
-  const goal = profile?.water_goal_ml ?? 2000;
-  const quests = await getQuestCompletions(userId, d);
-  if (water_ml >= goal && !quests.some((q) => q.quest_key === "water_enough")) {
-    await completeQuest(userId, "water_enough", d);
-  }
-  if (water_ml >= 750 && !quests.some((q) => q.quest_key === "hydrate_3")) {
-    await completeQuest(userId, "hydrate_3", d);
-  }
+  await syncAutoQuests(userId, d);
   return result;
 }
 
@@ -206,7 +203,14 @@ export async function setSleep(
   date?: string
 ) {
   const d = await todayForUser(userId, date);
-  return upsertDailyEntry(userId, { sleep_start, sleep_end, sleep_quality, date: d });
+  const result = await upsertDailyEntry(userId, {
+    sleep_start,
+    sleep_end,
+    sleep_quality,
+    date: d,
+  });
+  await syncAutoQuests(userId, d);
+  return result;
 }
 
 export async function getExpenses(
@@ -332,23 +336,17 @@ export async function addFoodLog(
 ) {
   const entry = await foodLog.addFoodLog(userId, input);
   const d = entry.date;
-  if (input.meal_slot === "breakfast") {
-    await completeQuest(userId, "log_breakfast", d);
-  }
   if (input.emotional_tags?.includes("homemade") || input.source === "recipe") {
-    await completeQuest(userId, "homemade", d);
     const log = await foodLog.getFoodLog(userId, d);
     const homemadeN = log.filter(
       (e) =>
         e.emotional_tags.includes("homemade") ||
         e.source === "recipe" ||
-        e.source === "polaroid" && e.emotional_tags.includes("homemade")
+        (e.source === "polaroid" && e.emotional_tags.includes("homemade"))
     ).length;
     await maybeAwardHerbPot(userId, homemadeN);
   }
-  if (input.source === "recipe" || input.name.toLowerCase().includes("cook")) {
-    await completeQuest(userId, "cook_at_home", d);
-  }
+  await syncAutoQuests(userId, d);
   return entry;
 }
 
@@ -368,18 +366,56 @@ export async function getQuestCompletions(
   return localStore.getQuests(date);
 }
 
-export async function completeQuest(userId: string, questKey: string, date?: string) {
-  const resolvedDate = await todayForUser(userId, date);
-  const existing = await getQuestCompletions(userId, resolvedDate);
-  if (existing.some((c) => c.quest_key === questKey)) {
-    return { completion: existing.find((c) => c.quest_key === questKey)!, rare: false };
+export type CompleteQuestOptions = {
+  date?: string;
+  grantGarden?: boolean;
+  via?: "manual" | "auto";
+};
+
+export async function completeQuest(
+  userId: string,
+  questKey: string,
+  dateOrOptions?: string | CompleteQuestOptions,
+  maybeOptions?: CompleteQuestOptions
+) {
+  let resolvedDate: string | undefined;
+  let options: CompleteQuestOptions = {};
+  if (typeof dateOrOptions === "string") {
+    resolvedDate = dateOrOptions;
+    options = maybeOptions ?? {};
+  } else {
+    options = dateOrOptions ?? {};
   }
+
+  const d = await todayForUser(userId, resolvedDate ?? options.date);
+  const existing = await getQuestCompletions(userId, d);
+  if (existing.some((c) => c.quest_key === questKey)) {
+    return {
+      completion: existing.find((c) => c.quest_key === questKey)!,
+      rare: false,
+      gardenGranted: false,
+    };
+  }
+
+  const dailyEntry = await getDailyEntry(userId, d);
+  const dailyKeys = pickDailyQuests(userId, d, 3, dailyEntry?.mood ?? null).map(
+    (q) => q.key
+  );
+  const inDailyPick = dailyKeys.includes(questKey);
+  const grantGarden =
+    options.grantGarden !== false &&
+    inDailyPick &&
+    !hasQuestGardenGrantedToday(userId, d);
+
   const q: QuestCompletion = {
     id: uid(),
     user_id: userId,
-    date: resolvedDate,
+    date: d,
     quest_key: questKey,
   };
+
+  let rare = false;
+  let gardenGranted = false;
 
   if (shouldUseSupabase(userId)) {
     const supabase = createClient()!;
@@ -387,35 +423,59 @@ export async function completeQuest(userId: string, questKey: string, date?: str
       onConflict: "user_id,date,quest_key",
     });
     if (error) console.warn("[bloomlog] quest upsert:", error.message);
-    else {
-      const rare = isRareSeedRoll(userId, resolvedDate, questKey);
-      const seed = Math.abs(
-        questKey.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
-      );
-      const itemDef = randomGardenReward(seed, rare);
-      await addGardenItem(userId, itemDef.key, {
-        x: 20 + (seed % 60),
-        y: 30 + (seed % 40),
-        layer: rare ? 2 : 1,
-      });
-      return { completion: q, rare };
-    }
+  } else {
+    localStore.addQuest(q);
   }
 
-  localStore.addQuest(q);
-  const rare = isRareSeedRoll(userId, resolvedDate, questKey);
-  const seed = Math.abs(questKey.split("").reduce((a, c) => a + c.charCodeAt(0), 0));
-  const itemDef = randomGardenReward(seed, rare);
-  await addGardenItem(userId, itemDef.key, {
-    x: 20 + (seed % 60),
-    y: 30 + (seed % 40),
-    layer: rare ? 2 : 1,
-  });
-  return { completion: q, rare };
+  if (grantGarden) {
+    markQuestGardenGrantedToday(userId, d);
+    rare = isRareSeedRoll(userId, d, questKey);
+    const seed = Math.abs(
+      questKey.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
+    );
+    const itemDef = randomGardenReward(seed, rare);
+    await addGardenItem(userId, itemDef.key, {
+      x: 20 + (seed % 60),
+      y: 30 + (seed % 40),
+      layer: rare ? 2 : 1,
+    });
+    gardenGranted = true;
+  }
+
+  return { completion: q, rare, gardenGranted, via: options.via ?? "manual" };
 }
 
-export function getTodaysQuests(userId: string, date?: string) {
-  return pickDailyQuests(userId, date ?? todayKey());
+export async function getQuestBoardState(userId: string, date?: string) {
+  const d = await todayForUser(userId, date);
+  const [daily, foodLog, completions, profile, letters] = await Promise.all([
+    getDailyEntry(userId, d),
+    getFoodLog(userId, d),
+    getQuestCompletions(userId, d),
+    getProfile(userId),
+    getJournalLetters(userId),
+  ]);
+  return buildQuestBoardState({
+    userId,
+    date: d,
+    daily,
+    foodLog,
+    completions,
+    profile,
+    letters,
+  });
+}
+
+/** Recompute quest auto-ready state after ritual updates (no silent DB writes). */
+export async function syncAutoQuests(userId: string, date?: string) {
+  return getQuestBoardState(userId, date);
+}
+
+export function getTodaysQuests(
+  userId: string,
+  date?: string,
+  mood?: import("@/lib/types").Mood | null
+) {
+  return pickDailyQuests(userId, date ?? todayKey(), 3, mood);
 }
 
 export async function getGardenItems(userId: string): Promise<GardenItem[]> {
@@ -525,6 +585,7 @@ export async function addJournalLetter(userId: string, body: string) {
   }
 
   localStore.addJournalLetter(letter);
+  await syncAutoQuests(userId, d);
   return letter;
 }
 

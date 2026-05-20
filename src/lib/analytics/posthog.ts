@@ -5,6 +5,8 @@ const ALLOWED_EVENTS = [
   "mood_set",
   "water_added",
   "quest_completed",
+  "quest_auto_completed",
+  "quest_claimed",
   "expense_logged",
   "meal_logged",
   "food_logged",

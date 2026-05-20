@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { trackEvent } from "@/lib/analytics/posthog";
 import * as api from "@/lib/data/api";
 import { todayKey, monthKey } from "@/lib/dates";
 import { useUserPreferences } from "@/components/providers/user-preferences";
@@ -129,6 +130,34 @@ export function useQuests(userId: string | null) {
   });
 }
 
+/** Refresh quest completions after daily / food / journal data is available. */
+export function useSyncQuestsOnDaily(userId: string | null) {
+  const qc = useQueryClient();
+  const { date } = useRitualDateKeys();
+  const { data: daily, isSuccess: dailyReady } = useDaily(userId);
+  const { data: foodLog, isSuccess: foodReady } = useFoodLog(userId);
+  const { data: letters, isSuccess: journalReady } = useJournalLetters(userId);
+
+  useEffect(() => {
+    if (!userId || !dailyReady || !foodReady || !journalReady) return;
+    void api.syncAutoQuests(userId, date).then(() => {
+      qc.invalidateQueries({ queryKey: ["quests", userId, date] });
+    });
+  }, [
+    userId,
+    date,
+    dailyReady,
+    foodReady,
+    journalReady,
+    daily?.water_ml,
+    daily?.sleep_end,
+    daily?.mood,
+    foodLog?.length,
+    letters?.length,
+    qc,
+  ]);
+}
+
 export function useGarden(userId: string | null) {
   return useQuery({
     queryKey: ["garden", userId],
@@ -196,4 +225,26 @@ export function usePatchProfileCache() {
   return (userId: string, profile: Awaited<ReturnType<typeof api.getProfile>>) => {
     qc.setQueryData(["profile", userId], profile);
   };
+}
+
+export function useAddWater(userId: string | null) {
+  const qc = useQueryClient();
+  const { date } = useRitualDateKeys();
+  const patchDaily = usePatchDailyCache();
+  const invalidateDaily = useInvalidateDaily();
+  const invalidateNourish = useInvalidateNourish();
+
+  return useCallback(
+    async (ml: number, source: "today" | "nourish" = "today") => {
+      if (!userId) return null;
+      const entry = await api.addWater(userId, ml, date);
+      patchDaily(userId, entry);
+      invalidateDaily(userId);
+      invalidateNourish(userId);
+      qc.invalidateQueries({ queryKey: ["quests", userId, date] });
+      trackEvent("water_added", { ml, source });
+      return entry;
+    },
+    [userId, date, patchDaily, invalidateDaily, invalidateNourish, qc]
+  );
 }

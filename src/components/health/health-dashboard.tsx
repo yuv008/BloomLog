@@ -6,7 +6,8 @@ import { Button } from "@/components/primitives/button";
 import { WellnessBloom } from "@/components/health/wellness-bloom";
 import { CalorieGentleRing } from "@/components/health/calorie-gentle-ring";
 import { MacroPetals } from "@/components/health/macro-petals";
-import { HydrationVignette } from "@/components/health/hydration-vignette";
+import { WaterTracker } from "@/components/water/water-tracker";
+import { NourishQuestChip } from "@/components/quests/nourish-quest-chip";
 import { MealSlotTimeline } from "@/components/health/meal-slot-timeline";
 import { MoodFoodWhisper } from "@/components/health/mood-food-whisper";
 import { pickEncouragement, HEALTH_DISCLAIMER } from "@/lib/health/copy";
@@ -23,10 +24,16 @@ import type {
   DailyEntry,
   DailyNutritionSummary,
   FoodLogEntry,
+  JournalLetter,
+  QuestCompletion,
   UserProfile,
 } from "@/lib/types";
 
 export function HealthDashboard({
+  userId,
+  date,
+  quests = [],
+  letters = [],
   profile,
   daily,
   summary,
@@ -34,6 +41,10 @@ export function HealthDashboard({
   streak,
   onAddWater,
 }: {
+  userId?: string;
+  date?: string;
+  quests?: QuestCompletion[];
+  letters?: JournalLetter[];
   profile: UserProfile | null | undefined;
   daily: DailyEntry | null | undefined;
   summary: DailyNutritionSummary;
@@ -63,6 +74,18 @@ export function HealthDashboard({
 
       <WellnessBloom label={label} />
 
+      {userId && date && (
+        <NourishQuestChip
+          userId={userId}
+          date={date}
+          completions={quests}
+          daily={daily}
+          foodLog={foodLog}
+          profile={profile}
+          letters={letters}
+        />
+      )}
+
       <Card>
         <CalorieGentleRing calories={summary.calories} target={target} display={display} />
         <div className="mt-4 pt-4 border-t border-beige/40">
@@ -70,7 +93,8 @@ export function HealthDashboard({
         </div>
       </Card>
 
-      <HydrationVignette
+      <WaterTracker
+        variant="compact"
         waterMl={waterMl}
         goalMl={waterGoal}
         streak={streak}

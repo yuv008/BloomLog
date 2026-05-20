@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { HealthDashboard } from "@/components/health/health-dashboard";
 import {
@@ -11,10 +11,11 @@ import {
   useNutritionSummary,
   useHydrationStreak,
   useInvalidateNourish,
-  usePatchDailyCache,
+  useAddWater,
+  useQuests,
+  useJournalLetters,
+  useTodayKey,
 } from "@/hooks/use-bloom-data";
-import * as api from "@/lib/data/api";
-import { trackEvent } from "@/lib/analytics/posthog";
 import { maybeAwardKitchenPitcher } from "@/lib/data/health-rewards";
 
 export default function NourishPage() {
@@ -25,18 +26,10 @@ export default function NourishPage() {
   const { data: summary } = useNutritionSummary(userId);
   const { data: streak = 0 } = useHydrationStreak(userId);
   const invalidate = useInvalidateNourish();
-  const patchDaily = usePatchDailyCache();
-
-  const onAddWater = useCallback(
-    async (ml: number) => {
-      if (!userId) return;
-      const entry = await api.addWater(userId, ml);
-      patchDaily(userId, entry);
-      invalidate(userId);
-      trackEvent("water_added", { ml, source: "nourish" });
-    },
-    [userId, patchDaily, invalidate]
-  );
+  const addWater = useAddWater(userId);
+  const { data: quests = [] } = useQuests(userId);
+  const { data: letters = [] } = useJournalLetters(userId);
+  const { date } = useTodayKey();
 
   useEffect(() => {
     if (userId && streak >= 7) {
@@ -65,12 +58,18 @@ export default function NourishPage() {
   return (
     <div className="space-y-4 pb-4">
       <HealthDashboard
+        userId={userId}
+        date={date}
+        quests={quests}
+        letters={letters}
         profile={profile ?? undefined}
         daily={daily ?? undefined}
         summary={displaySummary}
         foodLog={foodLog}
         streak={streak}
-        onAddWater={onAddWater}
+        onAddWater={async (ml) => {
+          await addWater(ml, "nourish");
+        }}
       />
       <Link href="/nourish/recipes" className="block text-center text-sm text-sage">
         browse cozy recipe library →

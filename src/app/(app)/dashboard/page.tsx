@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MoodSkyBackground, MoodCarousel } from "@/components/mood/mood-sky";
 import { GreetingHeader } from "@/components/layout/greeting-header";
-import { WaterBottleCard } from "@/components/water/water-bottle";
+import { WaterTracker } from "@/components/water/water-tracker";
 import { SpendBubblesCard } from "@/components/finance/spend-bubbles";
 import { NourishStrip } from "@/components/food/nourish-strip";
 import { TinyQuestsCard } from "@/components/quests/tiny-quests";
@@ -20,6 +20,10 @@ import {
   useMonthlyExpenses,
   useNutritionSummary,
   useQuests,
+  useFoodLog,
+  useJournalLetters,
+  useSyncQuestsOnDaily,
+  useAddWater,
   useInvalidateDaily,
   usePatchDailyCache,
   useTodayKey,
@@ -39,6 +43,10 @@ export default function DashboardPage() {
   const { data: monthlyExpenses = [] } = useMonthlyExpenses(userId);
   const { data: nutrition } = useNutritionSummary(userId);
   const { data: quests = [] } = useQuests(userId);
+  const { data: foodLog = [] } = useFoodLog(userId);
+  const { data: letters = [] } = useJournalLetters(userId);
+  useSyncQuestsOnDaily(userId);
+  const addWater = useAddWater(userId);
   const invalidate = useInvalidateDaily();
   const patchDaily = usePatchDailyCache();
   const { date, month } = useTodayKey();
@@ -91,12 +99,12 @@ export default function DashboardPage() {
           }}
         />
 
-        <WaterBottleCard
+        <WaterTracker
+          variant="hero"
           waterMl={daily?.water_ml ?? 0}
+          goalMl={profile?.water_goal_ml ?? 2000}
           onAdd={async (ml) => {
-            const entry = await api.addWater(userId, ml, date);
-            patchDaily(userId, entry);
-            trackEvent("water_added", { ml });
+            await addWater(ml, "today");
           }}
         />
 
@@ -140,9 +148,23 @@ export default function DashboardPage() {
           userId={userId}
           date={date}
           completions={quests}
-          onComplete={async (key) => {
-            const result = await api.completeQuest(userId, key, date);
-            trackEvent("quest_completed", { quest_key: key });
+          daily={daily}
+          foodLog={foodLog}
+          profile={profile}
+          letters={letters}
+          onComplete={async (key, via) => {
+            const result = await api.completeQuest(userId, key, { date, via });
+            if (via === "auto") {
+              trackEvent("quest_claimed", { quest_key: key });
+            } else {
+              trackEvent("quest_completed", { quest_key: key });
+            }
+            if (result.gardenGranted) {
+              trackEvent("quest_auto_completed", {
+                quest_key: key,
+                garden: true,
+              });
+            }
             refresh();
             qc.invalidateQueries({ queryKey: ["garden", userId] });
             return result;
