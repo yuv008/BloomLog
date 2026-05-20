@@ -55,11 +55,14 @@ export function SleepTrackerCard({
   sleepStart,
   sleepEnd,
   sleepQuality,
+  ritualDate,
   onSave,
 }: {
   sleepStart: string | null;
   sleepEnd: string | null;
   sleepQuality: SleepQuality | null;
+  /** Ritual calendar day (YYYY-MM-DD) in profile timezone */
+  ritualDate: string;
   onSave: (start: string, end: string, quality: SleepQuality | null) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -120,10 +123,9 @@ export function SleepTrackerCard({
           <Button
             className="w-full"
             onClick={async () => {
-              const today = format(new Date(), "yyyy-MM-dd");
               await onSave(
-                `${today}T${start}:00`,
-                `${today}T${end}:00`,
+                `${ritualDate}T${start}:00`,
+                `${ritualDate}T${end}:00`,
                 quality
               );
               setOpen(false);

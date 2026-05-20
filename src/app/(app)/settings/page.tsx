@@ -18,6 +18,7 @@ import {
   timezoneLabel,
 } from "@/lib/locale/timezones";
 import { useUserPreferences } from "@/components/providers/user-preferences";
+import { RoutineList } from "@/components/settings/routine-list";
 
 export default function SettingsPage() {
   const userId = useUserId();
@@ -43,6 +44,10 @@ export default function SettingsPage() {
     qc.invalidateQueries({ queryKey: ["nourish", "summary", userId] });
     qc.invalidateQueries({ queryKey: ["quests", userId] });
     qc.invalidateQueries({ queryKey: ["journal", userId] });
+    qc.invalidateQueries({ queryKey: ["hydrationStreak", userId] });
+    qc.invalidateQueries({ queryKey: ["calendar", userId] });
+    qc.invalidateQueries({ queryKey: ["calendarRange", userId] });
+    qc.invalidateQueries({ queryKey: ["calendarAgenda", userId] });
   };
 
   const handleExport = async () => {
@@ -224,6 +229,8 @@ export default function SettingsPage() {
           </Switch.Root>
         </label>
       </section>
+
+      {userId && <RoutineList userId={userId} />}
 
       <section className="glass-card p-5 space-y-3">
         <h2 className="text-sm text-whisper">your data</h2>

@@ -10,7 +10,7 @@ import { QUICK_FOOD_CATALOG } from "@/lib/food/quick-catalog";
 import { FOOD_TAGS } from "@/lib/food/tags";
 import { slotFromParam } from "@/components/health/meal-slot-timeline";
 import type { FoodTag, MealSlot } from "@/lib/types";
-import type { AddFoodLogInput } from "@/lib/data/food-log";
+import type { AddFoodLogMutationInput } from "@/hooks/use-bloom-data";
 
 export function QuickLogSheet({
   open,
@@ -20,7 +20,7 @@ export function QuickLogSheet({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSave: (input: AddFoodLogInput) => Promise<void>;
+  onSave: (input: AddFoodLogMutationInput) => Promise<void>;
   recents: string[];
 }) {
   const params = useSearchParams();
@@ -29,6 +29,7 @@ export function QuickLogSheet({
   );
   const [tags, setTags] = useState<FoodTag[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPreview, setAiPreview] = useState<{
@@ -86,7 +87,7 @@ export function QuickLogSheet({
     await onSave({
       meal_slot: slot,
       name: "polaroid meal",
-      photo_url: preview,
+      photoFile,
       emotional_tags: tags,
       source: "polaroid",
     });
@@ -97,6 +98,7 @@ export function QuickLogSheet({
   const reset = () => {
     setTags([]);
     setPreview(null);
+    setPhotoFile(null);
     setAiText("");
     setAiPreview(null);
   };
@@ -218,9 +220,8 @@ export function QuickLogSheet({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (!f) return;
-              const reader = new FileReader();
-              reader.onload = () => setPreview(reader.result as string);
-              reader.readAsDataURL(f);
+              setPhotoFile(f);
+              setPreview(URL.createObjectURL(f));
             }}
           />
           <Button variant="ghost" onClick={() => fileRef.current?.click()}>

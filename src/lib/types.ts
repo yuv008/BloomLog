@@ -209,3 +209,77 @@ export interface JournalLetter {
   mood_snapshot: Mood | null;
   created_at: string;
 }
+
+export type CalendarCategory =
+  | "nourish"
+  | "move"
+  | "rest"
+  | "care"
+  | "study"
+  | "social"
+  | "home"
+  | "ritual"
+  | "other";
+
+export type CalendarEventKind = "task" | "event" | "routine_instance" | "wellness_derived";
+
+export type CalendarEventStatus = "open" | "done" | "skipped" | "archived";
+
+export interface CalendarEvent {
+  id: string;
+  user_id: string;
+  ritual_date: string;
+  title: string;
+  notes: string | null;
+  category: CalendarCategory;
+  kind: CalendarEventKind;
+  starts_at: string | null;
+  ends_at: string | null;
+  all_day: boolean;
+  ritual_end_date: string | null;
+  priority: number;
+  status: CalendarEventStatus;
+  recurrence_rule_id: string | null;
+  linked_quest_key: string | null;
+  linked_food_log_id: string | null;
+  linked_daily_entry_date: string | null;
+  source_meta: Record<string, unknown>;
+  position_order: number;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RoutineTemplate {
+  id: string;
+  user_id: string;
+  title: string;
+  category: CalendarCategory;
+  default_time: string | null;
+  emoji: string;
+  garden_reward_key: string | null;
+  active: boolean;
+  created_at: string;
+}
+
+export interface RecurrenceRule {
+  id: string;
+  user_id: string;
+  frequency: "daily" | "weekly" | "monthly";
+  interval_count: number;
+  by_weekday: number[];
+  starts_on: string;
+  ends_on: string | null;
+  template: Record<string, unknown>;
+  last_generated_through: string | null;
+  created_at: string;
+}
+
+export type WellnessTimelineItem = {
+  id: string;
+  title: string;
+  category: CalendarCategory;
+  kind: "wellness_derived";
+  timeLabel?: string;
+  meta?: string;
+};

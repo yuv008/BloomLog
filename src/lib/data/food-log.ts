@@ -17,6 +17,7 @@ import type {
 } from "@/lib/types";
 import { aggregateNutrition } from "@/lib/health/nutrition-aggregate";
 import { computeHydrationStreak } from "@/lib/health/hydration-streak";
+import { hasMealPhoto } from "@/lib/media/meal-photo-url";
 
 function uid() {
   return crypto.randomUUID();
@@ -97,7 +98,15 @@ function normalizeFoodLogRows(rows: Record<string, unknown>[]): FoodLogEntry[] {
     fiber_g: r.fiber_g != null ? Number(r.fiber_g) : null,
     journal_note: (r.journal_note as string | null) ?? null,
     source: r.source as FoodLogSource,
-    source_meta: (r.source_meta as Record<string, unknown>) ?? {},
+    source_meta: {
+      ...((r.source_meta as Record<string, unknown>) ?? {}),
+      ...(r.photo_thumb_path
+        ? {
+            photo_thumb_path: r.photo_thumb_path as string,
+            photo_full_path: r.photo_full_path as string | undefined,
+          }
+        : {}),
+    },
     created_at: r.created_at as string,
   }));
 }
@@ -186,11 +195,28 @@ export async function deleteFoodLog(userId: string, entryId: string, date?: stri
   const d = await todayForUser(userId, date);
   if (shouldUseSupabase(userId)) {
     const supabase = createClient()!;
+    const { data: row } = await supabase
+      .from("food_log_entries")
+      .select("photo_thumb_path, photo_full_path")
+      .eq("user_id", userId)
+      .eq("id", entryId)
+      .maybeSingle();
     await supabase
       .from("food_log_entries")
       .delete()
       .eq("user_id", userId)
       .eq("id", entryId);
+    if (row?.photo_thumb_path || row?.photo_full_path) {
+      await fetch("/api/food/meal-photo", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryId,
+          thumbPath: row.photo_thumb_path,
+          fullPath: row.photo_full_path,
+        }),
+      });
+    }
   }
   localStore.removeFoodLog(entryId, d);
 }
@@ -246,6 +272,30 @@ export async function toggleFoodFavorite(
 
   localStore.addFoodFavorite(fav);
   return fav;
+}
+
+/** Meal logs with photos, newest first — for memory shelf polaroids */
+export async function getMealPolaroids(
+  userId: string,
+  limit = 48
+): Promise<FoodLogEntry[]> {
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data, error } = await supabase
+      .from("food_log_entries")
+      .select("*")
+      .eq("user_id", userId)
+      .or("photo_url.not.is.null,photo_thumb_path.not.is.null")
+      .order("logged_at", { ascending: false })
+      .limit(limit);
+    if (!error && data?.length) {
+      return normalizeFoodLogRows(data).filter(hasMealPhoto);
+    }
+  }
+  return localStore
+    .getAllFoodLogWithPhotos()
+    .filter((e) => e.user_id === userId || isLocalUserId(userId))
+    .slice(0, limit);
 }
 
 export async function getRecentFoodNames(userId: string, limit = 10): Promise<string[]> {
@@ -342,7 +392,21 @@ export async function getHydrationHistory(
       .limit(days);
     if (data) return data as Pick<DailyEntry, "date" | "water_ml">[];
   }
-  return localStore.getHydrationHistory(days);
+  const profile = await getProfileForHydration(userId);
+  return localStore.getHydrationHistory(days, profile?.timezone);
+}
+
+async function getProfileForHydration(userId: string) {
+  if (shouldUseSupabase(userId)) {
+    const supabase = createClient()!;
+    const { data } = await supabase
+      .from("users_profile")
+      .select("timezone")
+      .eq("id", userId)
+      .maybeSingle();
+    return data ? { timezone: data.timezone as string } : null;
+  }
+  return localStore.getProfile();
 }
 
 export async function getHydrationStreak(userId: string): Promise<number> {

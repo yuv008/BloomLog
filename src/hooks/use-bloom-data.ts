@@ -1,11 +1,15 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { trackEvent } from "@/lib/analytics/posthog";
 import * as api from "@/lib/data/api";
-import { todayKey, monthKey } from "@/lib/dates";
+import type { AddFoodLogInput } from "@/lib/data/food-log";
+import { shouldUseSupabase } from "@/lib/data/auth";
+import { compressMealPhoto, revokeMealPreview } from "@/lib/media/compress-image";
+import { todayKey, monthKey, msUntilMidnightInTz } from "@/lib/dates";
 import { useUserPreferences } from "@/components/providers/user-preferences";
+import type { FoodLogEntry } from "@/lib/types";
 
 export function useUserId() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -77,6 +81,113 @@ export function useFoodLog(userId: string | null) {
   });
 }
 
+export type AddFoodLogMutationInput = AddFoodLogInput & { photoFile?: File | null };
+
+export function useAddFoodLog(userId: string | null) {
+  const qc = useQueryClient();
+  const { date } = useRitualDateKeys();
+  const invalidateNourish = useInvalidateNourish();
+
+  return useMutation({
+    mutationFn: async (input: AddFoodLogMutationInput) => {
+      if (!userId) throw new Error("not signed in");
+      const { photoFile, ...rest } = input;
+      const ritualDate = rest.date ?? date;
+
+      if (photoFile && shouldUseSupabase(userId)) {
+        const compressed = await compressMealPhoto(photoFile);
+        try {
+          const fd = new FormData();
+          fd.append("thumb", compressed.thumbBlob, "thumb.webp");
+          fd.append("full", compressed.fullBlob, "full.webp");
+          fd.append("meal_slot", rest.meal_slot);
+          fd.append("name", rest.name);
+          fd.append("date", ritualDate);
+          fd.append("source", rest.source ?? "polaroid");
+          fd.append("emotional_tags", JSON.stringify(rest.emotional_tags ?? []));
+          const res = await fetch("/api/upload/meal-photo", { method: "POST", body: fd });
+          if (!res.ok) {
+            const err = (await res.json()) as { error?: string };
+            throw new Error(err.error ?? "photo upload failed");
+          }
+          const data = (await res.json()) as { entry: FoodLogEntry };
+          return data.entry;
+        } finally {
+          revokeMealPreview(compressed.previewUrl);
+        }
+      }
+
+      if (photoFile) {
+        const compressed = await compressMealPhoto(photoFile);
+        try {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(compressed.thumbBlob);
+          });
+          return api.addFoodLog(userId, {
+            ...rest,
+            date: ritualDate,
+            photo_url: dataUrl,
+            source_meta: {
+              ...rest.source_meta,
+              photo_bytes: compressed.thumbBytes + compressed.fullBytes,
+            },
+          });
+        } finally {
+          revokeMealPreview(compressed.previewUrl);
+        }
+      }
+
+      return api.addFoodLog(userId, { ...rest, date: ritualDate });
+    },
+    onMutate: async (input) => {
+      if (!userId || !input.photoFile) return { prev: undefined as FoodLogEntry[] | undefined };
+      await qc.cancelQueries({ queryKey: ["foodLog", userId, date] });
+      const prev = qc.getQueryData<FoodLogEntry[]>(["foodLog", userId, date]);
+      const preview = URL.createObjectURL(input.photoFile);
+      const temp: FoodLogEntry = {
+        id: `temp-${Date.now()}`,
+        user_id: userId,
+        date,
+        logged_at: new Date().toISOString(),
+        meal_slot: input.meal_slot,
+        name: input.name,
+        photo_url: preview,
+        emotional_tags: input.emotional_tags ?? [],
+        calories: input.calories ?? null,
+        protein_g: input.protein_g ?? null,
+        carbs_g: input.carbs_g ?? null,
+        fat_g: input.fat_g ?? null,
+        fiber_g: null,
+        journal_note: input.journal_note ?? null,
+        source: input.source ?? "polaroid",
+        source_meta: { uploading: true },
+        created_at: new Date().toISOString(),
+      };
+      qc.setQueryData(["foodLog", userId, date], [...(prev ?? []), temp]);
+      return { prev };
+    },
+    onError: (_err, _input, ctx) => {
+      if (userId && ctx?.prev) {
+        qc.setQueryData(["foodLog", userId, date], ctx.prev);
+      }
+    },
+    onSuccess: (entry) => {
+      if (!userId) return;
+      qc.setQueryData<FoodLogEntry[]>(["foodLog", userId, date], (old) => {
+        const list = old ?? [];
+        const withoutTemp = list.filter((e) => !String(e.id).startsWith("temp-"));
+        const exists = withoutTemp.some((e) => e.id === entry.id);
+        return exists ? withoutTemp : [...withoutTemp, entry];
+      });
+      invalidateNourish(userId);
+      qc.invalidateQueries({ queryKey: ["mealPolaroids", userId] });
+    },
+  });
+}
+
 export function useNutritionSummary(userId: string | null) {
   const { date } = useRitualDateKeys();
   return useQuery({
@@ -120,6 +231,7 @@ export function useInvalidateNourish() {
     qc.invalidateQueries({ queryKey: ["foodFavorites", userId] });
     qc.invalidateQueries({ queryKey: ["aiRecipes", userId] });
     qc.invalidateQueries({ queryKey: ["hydrationStreak", userId] });
+    qc.invalidateQueries({ queryKey: ["mealPolaroids", userId] });
   };
 }
 
@@ -177,6 +289,15 @@ export function usePolaroids(userId: string | null) {
   });
 }
 
+export function useMealPolaroids(userId: string | null) {
+  return useQuery({
+    queryKey: ["mealPolaroids", userId],
+    queryFn: () => (userId ? api.getMealPolaroids(userId) : []),
+    enabled: !!userId,
+    staleTime: 60_000,
+  });
+}
+
 export function useJournalLetters(userId: string | null) {
   return useQuery({
     queryKey: ["journal", userId],
@@ -211,6 +332,9 @@ export function useInvalidateRitualQueries() {
     qc.invalidateQueries({ queryKey: ["hydrationStreak", userId] });
     qc.invalidateQueries({ queryKey: ["quests", userId] });
     qc.invalidateQueries({ queryKey: ["journal", userId] });
+    qc.invalidateQueries({ queryKey: ["calendarAgenda", userId] });
+    qc.invalidateQueries({ queryKey: ["calendar", userId] });
+    qc.invalidateQueries({ queryKey: ["calendarRange", userId] });
   };
 }
 
@@ -227,6 +351,33 @@ export function usePatchProfileCache() {
   return (userId: string, profile: Awaited<ReturnType<typeof api.getProfile>>) => {
     qc.setQueryData(["profile", userId], profile);
   };
+}
+
+/** Invalidate ritual queries when the profile-timezone day rolls over */
+export function useRitualMidnightRefresh(userId: string | null) {
+  const qc = useQueryClient();
+  const { timezone } = useUserPreferences();
+
+  useEffect(() => {
+    if (!userId) return;
+    const schedule = () => {
+      const ms = msUntilMidnightInTz(timezone);
+      return window.setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["daily", userId] });
+        qc.invalidateQueries({ queryKey: ["expenses", userId] });
+        qc.invalidateQueries({ queryKey: ["foodLog", userId] });
+        qc.invalidateQueries({ queryKey: ["quests", userId] });
+        qc.invalidateQueries({ queryKey: ["nourish", "summary", userId] });
+        qc.invalidateQueries({ queryKey: ["calendar", userId] });
+        qc.invalidateQueries({ queryKey: ["calendarRange", userId] });
+        qc.invalidateQueries({ queryKey: ["calendarAgenda", userId] });
+        qc.invalidateQueries({ queryKey: ["calendarMonth", userId] });
+        schedule();
+      }, ms);
+    };
+    const id = schedule();
+    return () => clearTimeout(id);
+  }, [userId, timezone, qc]);
 }
 
 export function useAddWater(userId: string | null) {

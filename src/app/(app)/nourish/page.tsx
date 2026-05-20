@@ -15,6 +15,7 @@ import {
   useQuests,
   useJournalLetters,
   useTodayKey,
+  useRitualMidnightRefresh,
 } from "@/hooks/use-bloom-data";
 import { maybeAwardKitchenPitcher } from "@/lib/data/health-rewards";
 
@@ -30,6 +31,7 @@ export default function NourishPage() {
   const { data: quests = [] } = useQuests(userId);
   const { data: letters = [] } = useJournalLetters(userId);
   const { date } = useTodayKey();
+  useRitualMidnightRefresh(userId);
 
   useEffect(() => {
     if (userId && streak >= 7) {

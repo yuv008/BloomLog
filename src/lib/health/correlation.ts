@@ -1,3 +1,4 @@
+import { hourInTimeZone } from "@/lib/dates";
 import type { DailyEntry, FoodLogEntry, Mood } from "@/lib/types";
 
 export function pickMoodFoodWhisper(
@@ -24,13 +25,14 @@ export function pickMoodFoodWhisper(
 
 export function pickSleepFoodWhisper(
   daily: DailyEntry | null,
-  entries: FoodLogEntry[]
+  entries: FoodLogEntry[],
+  timeZone?: string
 ): string | null {
   if (!daily?.sleep_quality || entries.length === 0) return null;
 
   const lateDinner = entries.some((e) => {
     if (e.meal_slot !== "dinner") return false;
-    const hour = new Date(e.logged_at).getHours();
+    const hour = hourInTimeZone(new Date(e.logged_at), timeZone);
     return hour >= 21;
   });
 

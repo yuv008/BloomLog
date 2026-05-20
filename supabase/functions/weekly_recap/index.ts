@@ -5,6 +5,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function dateInTimeZone(date: Date, timeZone: string): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function last7DayKeys(timeZone: string): { start: string; end: string } {
+  const end = dateInTimeZone(new Date(), timeZone);
+  const keys: string[] = [end];
+  for (let i = 1; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    keys.unshift(dateInTimeZone(d, timeZone));
+  }
+  return { start: keys[0], end: keys[keys.length - 1] };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -23,11 +46,13 @@ Deno.serve(async (req) => {
     });
   }
 
-  const end = new Date();
-  const start = new Date(end);
-  start.setDate(start.getDate() - 7);
-  const startStr = start.toISOString().slice(0, 10);
-  const endStr = end.toISOString().slice(0, 10);
+  const { data: profile } = await supabase
+    .from("users_profile")
+    .select("timezone")
+    .eq("id", user_id)
+    .maybeSingle();
+  const timeZone = (profile?.timezone as string) || "UTC";
+  const { start: startStr, end: endStr } = last7DayKeys(timeZone);
 
   const { data: entries } = await supabase
     .from("daily_entries")
@@ -65,18 +90,18 @@ Deno.serve(async (req) => {
     }
     await supabase.from("memory_polaroids").insert({
       user_id,
-      kind: "soft_sleep",
+      kind: "rested_night",
       period_start: startStr,
       period_end: endStr,
       payload: {
-        best_date: best.date,
+        date: best.date,
         hours: Math.round(bestHours * 10) / 10,
-        label: "your softest sleep week",
+        label: "your most rested night",
       },
     });
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
+  return new Response(JSON.stringify({ ok: true, start: startStr, end: endStr }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

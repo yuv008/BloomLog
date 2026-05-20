@@ -8,10 +8,14 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:db:push": "supabase db push",
-    "supabase:migrate:remote": "node scripts/run-remote-migrations.mjs",
+    "supabase:migrate:remote": "supabase db push",
+    "supabase:migrate:remote:api": "node scripts/run-remote-migrations.mjs",
+    "setup:fetch-env": "node scripts/fetch-supabase-env.mjs",
     "supabase:db:reset": "supabase db reset",
     "supabase:gen:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "vercel:link": "vercel link",
@@ -55,6 +59,7 @@
     "supabase": "^2.100.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^54.2.0"
+    "vercel": "^54.2.0",
+    "vitest": "^3.2.4"
   }
 }

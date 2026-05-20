@@ -2,6 +2,7 @@
 
 import type {
   AiRecipe,
+  CalendarEvent,
   DailyEntry,
   Expense,
   FoodFavorite,
@@ -11,10 +12,13 @@ import type {
   Meal,
   MemoryPolaroid,
   QuestCompletion,
+  RecurrenceRule,
+  RoutineTemplate,
   UserProfile,
   WhisperLog,
 } from "@/lib/types";
 import { todayKey } from "@/lib/dates";
+import { hasMealPhoto } from "@/lib/media/meal-photo-url";
 
 const PREFIX = "bloomlog_";
 
@@ -117,6 +121,13 @@ export const localStore = {
     }
     return names;
   },
+  getAllFoodLogWithPhotos(): FoodLogEntry[] {
+    const all = read<Record<string, FoodLogEntry[]>>("food_log", {});
+    return Object.values(all)
+      .flat()
+      .filter((e) => hasMealPhoto(e))
+      .sort((a, b) => b.logged_at.localeCompare(a.logged_at));
+  },
   getFoodFavorites(): FoodFavorite[] {
     return read("food_favorites", []);
   },
@@ -138,9 +149,12 @@ export const localStore = {
     const list = read<AiRecipe[]>("ai_recipes", []);
     write("ai_recipes", [recipe, ...list]);
   },
-  getHydrationHistory(days: number): Pick<DailyEntry, "date" | "water_ml">[] {
+  getHydrationHistory(
+    days: number,
+    timeZone?: string
+  ): Pick<DailyEntry, "date" | "water_ml">[] {
     const all = read<Record<string, DailyEntry>>("daily", {});
-    const today = todayKey();
+    const today = todayKey(timeZone);
     return Object.values(all)
       .filter((e) => e.date <= today)
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -196,6 +210,56 @@ export const localStore = {
       list.filter((l) => l.id !== id)
     );
   },
+  getCalendarEvents(): CalendarEvent[] {
+    return read<CalendarEvent[]>("calendar_events", []);
+  },
+  upsertCalendarEvent(event: CalendarEvent) {
+    const list = read<CalendarEvent[]>("calendar_events", []);
+    const idx = list.findIndex((e) => e.id === event.id);
+    if (idx >= 0) list[idx] = event;
+    else list.push(event);
+    write("calendar_events", list);
+  },
+  getRoutineTemplates(): RoutineTemplate[] {
+    return read<RoutineTemplate[]>("routine_templates", []);
+  },
+  upsertRoutineTemplate(tpl: RoutineTemplate) {
+    const list = read<RoutineTemplate[]>("routine_templates", []);
+    const idx = list.findIndex((r) => r.id === tpl.id);
+    if (idx >= 0) list[idx] = tpl;
+    else list.push(tpl);
+    write("routine_templates", list);
+  },
+  getRecurrenceRules(): RecurrenceRule[] {
+    return read<RecurrenceRule[]>("recurrence_rules", []);
+  },
+  upsertRecurrenceRule(rule: RecurrenceRule) {
+    const list = read<RecurrenceRule[]>("recurrence_rules", []);
+    const idx = list.findIndex((r) => r.id === rule.id);
+    if (idx >= 0) list[idx] = rule;
+    else list.push(rule);
+    write("recurrence_rules", list);
+  },
+  getPendingCalendarOps(): Array<{
+    op: "create" | "update" | "complete" | "delete";
+    payload: Record<string, unknown>;
+    at: string;
+  }> {
+    return read("pending_calendar_ops", []);
+  },
+  queueCalendarOp(
+    op: "create" | "update" | "complete" | "delete",
+    payload: Record<string, unknown>
+  ) {
+    const q = read<
+      Array<{ op: typeof op; payload: Record<string, unknown>; at: string }>
+    >("pending_calendar_ops", []);
+    q.push({ op, payload, at: new Date().toISOString() });
+    write("pending_calendar_ops", q);
+  },
+  flushPendingCalendarOps() {
+    write("pending_calendar_ops", []);
+  },
   exportAll() {
     return {
       profile: read("profile", null),
@@ -210,6 +274,9 @@ export const localStore = {
       polaroids: read("polaroids", []),
       whispers: read("whispers", []),
       letters: read("letters", []),
+      calendar_events: read("calendar_events", []),
+      routine_templates: read("routine_templates", []),
+      recurrence_rules: read("recurrence_rules", []),
     };
   },
   clearAll() {

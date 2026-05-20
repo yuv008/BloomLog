@@ -12,7 +12,7 @@ import { MonthlySpendPanel } from "@/components/finance/monthly-spend-chart";
 import { useUserPreferences } from "@/components/providers/user-preferences";
 import { formatMoney } from "@/lib/locale/format-money";
 import type { Expense, ExpenseCategory } from "@/lib/types";
-import { NumberWheel } from "./number-wheel";
+import { AmountInput } from "./amount-input";
 
 export function SpendBubblesCard({
   expenses,
@@ -27,7 +27,7 @@ export function SpendBubblesCard({
   const [open, setOpen] = useState(false);
   const [monthOpen, setMonthOpen] = useState(false);
   const [category, setCategory] = useState<ExpenseCategory | null>(null);
-  const [amount, setAmount] = useState(200);
+  const [amount, setAmount] = useState(10);
   const [selected, setSelected] = useState<Expense | null>(null);
   const todayTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const monthRows = aggregateExpensesByCategory(monthlyExpenses);
@@ -132,14 +132,14 @@ export function SpendBubblesCard({
           </div>
         ) : (
           <div className="space-y-4">
-            <NumberWheel value={amount} onChange={setAmount} />
+            <AmountInput value={amount} onChange={setAmount} />
             <Button
               className="w-full"
               onClick={async () => {
                 await onAdd(category, amount);
                 setOpen(false);
                 setCategory(null);
-                setAmount(200);
+                setAmount(10);
               }}
             >
               save gently

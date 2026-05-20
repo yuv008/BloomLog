@@ -11,6 +11,7 @@ import { TinyQuestsCard } from "@/components/quests/tiny-quests";
 import { SleepTrackerCard } from "@/components/sleep/sleep-tracker";
 import { WhisperCard } from "@/components/whispers/whisper-card";
 import { CharacterQuoteCard } from "@/components/dashboard/character-quote-card";
+import { DayRhythmCard } from "@/components/dashboard/day-rhythm-card";
 import { PetalBurst } from "@/components/motion/petal-burst";
 import {
   useUserId,
@@ -27,6 +28,7 @@ import {
   useInvalidateDaily,
   usePatchDailyCache,
   useTodayKey,
+  useRitualMidnightRefresh,
 } from "@/hooks/use-bloom-data";
 import { useWhisper } from "@/hooks/use-whisper";
 import { useUiStore } from "@/stores/use-ui-store";
@@ -46,6 +48,7 @@ export default function DashboardPage() {
   const { data: foodLog = [] } = useFoodLog(userId);
   const { data: letters = [] } = useJournalLetters(userId);
   useSyncQuestsOnDaily(userId);
+  useRitualMidnightRefresh(userId);
   const addWater = useAddWater(userId);
   const invalidate = useInvalidateDaily();
   const patchDaily = usePatchDailyCache();
@@ -69,6 +72,8 @@ export default function DashboardPage() {
       qc.invalidateQueries({ queryKey: ["foodLog", userId, date] });
       qc.invalidateQueries({ queryKey: ["nourish", "summary", userId, date] });
       qc.invalidateQueries({ queryKey: ["quests", userId, date] });
+      qc.invalidateQueries({ queryKey: ["calendarAgenda", userId] });
+      qc.invalidateQueries({ queryKey: ["calendar", userId] });
     }
   }, [userId, qc, date, month]);
 
@@ -88,6 +93,8 @@ export default function DashboardPage() {
       <div className="space-y-5 relative z-10 w-full min-w-0 max-w-full overflow-x-hidden">
         <WhisperCard text={whisperText ?? ""} show={showWhisper} onDismiss={dismiss} />
         <GreetingHeader name={profile?.display_name} />
+
+        <DayRhythmCard userId={userId} />
 
         <MoodCarousel
           value={mood}
@@ -138,6 +145,7 @@ export default function DashboardPage() {
           sleepStart={daily?.sleep_start ?? null}
           sleepEnd={daily?.sleep_end ?? null}
           sleepQuality={daily?.sleep_quality ?? null}
+          ritualDate={date}
           onSave={async (start, end, quality: SleepQuality | null) => {
             await api.setSleep(userId, start, end, quality, date);
             invalidate(userId);

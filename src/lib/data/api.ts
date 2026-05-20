@@ -45,6 +45,14 @@ async function todayForUser(userId: string, date?: string): Promise<string> {
   return todayKey(profile?.timezone);
 }
 
+/** Ritual calendar day in the user's profile timezone */
+export async function resolveRitualDate(
+  userId: string,
+  date?: string
+): Promise<string> {
+  return todayForUser(userId, date);
+}
+
 async function monthForUser(userId: string, month?: string): Promise<string> {
   if (month) return month;
   const profile = await getProfile(userId);
@@ -282,12 +290,16 @@ export async function addExpense(
   note?: string,
   date?: string
 ) {
+  const rounded = Math.round(amount * 100) / 100;
+  if (!Number.isFinite(rounded) || rounded <= 0) {
+    throw new Error("amount must be greater than zero");
+  }
   const expense: Expense = {
     id: uid(),
     user_id: userId,
     date: await todayForUser(userId, date),
     category,
-    amount,
+    amount: rounded,
     note: note ?? null,
     created_at: new Date().toISOString(),
   };
@@ -342,6 +354,7 @@ export async function addMeal(
 }
 
 export const getFoodLog = foodLog.getFoodLog;
+export const getMealPolaroids = foodLog.getMealPolaroids;
 export const deleteFoodLog = foodLog.deleteFoodLog;
 export const getDailyNutritionSummary = foodLog.getDailyNutritionSummary;
 export const getFoodFavorites = foodLog.getFoodFavorites;
@@ -643,7 +656,7 @@ export async function exportUserData(userId: string) {
     return localStore.exportAll();
   }
   const supabase = createClient()!;
-  const [profile, daily, expenses, meals, foodLog, quests, garden, polaroids, whispers, letters] =
+  const [profile, daily, expenses, meals, foodLog, quests, garden, polaroids, whispers, letters, calendar] =
     await Promise.all([
       getProfile(userId),
       supabase.from("daily_entries").select("*").eq("user_id", userId),
@@ -655,18 +668,31 @@ export async function exportUserData(userId: string) {
       getPolaroids(userId),
       supabase.from("whispers_log").select("*").eq("user_id", userId),
       getJournalLetters(userId),
+      supabase.from("calendar_events").select("*").eq("user_id", userId),
     ]);
+  const sanitizedFoodLog = (foodLog.data ?? []).map((row) => {
+    const photo = row.photo_url as string | null;
+    if (photo?.startsWith("data:")) {
+      return {
+        ...row,
+        photo_url: null,
+        photo_export_note: "inline photo omitted — use storage path",
+      };
+    }
+    return row;
+  });
   return {
     profile,
     daily: daily.data,
     expenses: expenses.data,
     meals: meals.data,
-    food_log: foodLog.data,
+    food_log: sanitizedFoodLog,
     quests: quests.data,
     garden,
     polaroids,
     whispers: whispers.data,
     letters,
+    calendar_events: calendar.data,
   };
 }
 
@@ -686,6 +712,11 @@ export async function deleteAllUserData(userId: string) {
       supabase.from("health_insights").delete().eq("user_id", userId),
       supabase.from("expenses").delete().eq("user_id", userId),
       supabase.from("daily_entries").delete().eq("user_id", userId),
+      supabase.from("calendar_reminders").delete().eq("user_id", userId),
+      supabase.from("calendar_events").delete().eq("user_id", userId),
+      supabase.from("recurrence_rules").delete().eq("user_id", userId),
+      supabase.from("routine_templates").delete().eq("user_id", userId),
+      supabase.from("activity_log").delete().eq("user_id", userId),
       supabase.from("users_profile").delete().eq("id", userId),
     ]);
     await supabase.auth.signOut();

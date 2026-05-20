@@ -3,19 +3,15 @@
 import { Suspense, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { QuickLogSheet } from "@/components/food/quick-log-sheet";
-import {
-  useUserId,
-  useInvalidateNourish,
-} from "@/hooks/use-bloom-data";
+import { useUserId, useAddFoodLog } from "@/hooks/use-bloom-data";
 import * as api from "@/lib/data/api";
-import type { AddFoodLogInput } from "@/lib/data/food-log";
 import { trackEvent } from "@/lib/analytics/posthog";
 import { useUiStore } from "@/stores/use-ui-store";
 
 function NourishLogContent() {
   const router = useRouter();
   const userId = useUserId();
-  const invalidate = useInvalidateNourish();
+  const addFood = useAddFoodLog(userId);
   const [open, setOpen] = useState(true);
   const [recents, setRecents] = useState<string[]>([]);
   const triggerPetal = useUiStore((s) => s.triggerPetalBurst);
@@ -24,10 +20,11 @@ function NourishLogContent() {
     if (userId) api.getRecentFoodNames(userId).then(setRecents);
   }, [userId]);
 
-  const onSave = async (input: AddFoodLogInput) => {
+  const onSave = async (
+    input: Parameters<typeof addFood.mutateAsync>[0]
+  ) => {
     if (!userId) return;
-    await api.addFoodLog(userId, input);
-    invalidate(userId);
+    await addFood.mutateAsync(input);
     trackEvent("food_logged", {
       source: input.source ?? "quick",
       slot: input.meal_slot,

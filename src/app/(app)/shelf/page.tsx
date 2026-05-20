@@ -1,14 +1,16 @@
 "use client";
 
+import { GardenLinkCard } from "@/components/dashboard/garden-link-card";
 import { MemoryShelf } from "@/components/shelf/memory-shelf";
 import { JournalLetters } from "@/components/shelf/journal-letters";
-import { useUserId, usePolaroids, useJournalLetters } from "@/hooks/use-bloom-data";
+import { useUserId, usePolaroids, useMealPolaroids, useJournalLetters } from "@/hooks/use-bloom-data";
 import { Button } from "@/components/primitives/button";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function ShelfPage() {
   const userId = useUserId();
   const { data: polaroids = [] } = usePolaroids(userId);
+  const { data: mealPolaroids = [] } = useMealPolaroids(userId);
   const { data: letters = [] } = useJournalLetters(userId);
   const qc = useQueryClient();
 
@@ -36,8 +38,11 @@ export default function ShelfPage() {
 
   return (
     <div className="pb-4 w-full min-w-0 max-w-full overflow-x-hidden">
-      <MemoryShelf polaroids={polaroids} />
-      {polaroids.length === 0 && userId && (
+      <div className="mb-4">
+        <GardenLinkCard />
+      </div>
+      <MemoryShelf polaroids={polaroids} mealPolaroids={mealPolaroids} />
+      {polaroids.length === 0 && mealPolaroids.length === 0 && userId && (
         <Button variant="ghost" className="w-full mt-4" onClick={generateRecap}>
           preview a cozy polaroid
         </Button>

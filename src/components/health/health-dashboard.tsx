@@ -9,6 +9,8 @@ import { MacroPetals } from "@/components/health/macro-petals";
 import { WaterTracker } from "@/components/water/water-tracker";
 import { NourishQuestChip } from "@/components/quests/nourish-quest-chip";
 import { MealSlotTimeline } from "@/components/health/meal-slot-timeline";
+import { DayContextBar } from "@/components/layout/day-context-bar";
+import { hasMealPhoto } from "@/lib/media/meal-photo-url";
 import { MoodFoodWhisper } from "@/components/health/mood-food-whisper";
 import { pickEncouragement, HEALTH_DISCLAIMER } from "@/lib/health/copy";
 import {
@@ -61,7 +63,11 @@ export function HealthDashboard({
   const label = wellnessLabel(daily ?? null, summary, waterMl, waterGoal);
   const seed = profile?.id ?? "guest";
   const moodWhisper = pickMoodFoodWhisper(daily?.mood, foodLog);
-  const sleepWhisper = pickSleepFoodWhisper(daily ?? null, foodLog);
+  const sleepWhisper = pickSleepFoodWhisper(
+    daily ?? null,
+    foodLog,
+    profile?.timezone
+  );
   const hydrationWhisper = pickHydrationInsight(waterMl, waterGoal, streak);
   const whisper = moodWhisper ?? sleepWhisper ?? hydrationWhisper;
 
@@ -69,6 +75,7 @@ export function HealthDashboard({
     <div className="space-y-5 w-full min-w-0">
       <div>
         <h1 className="font-display text-2xl text-ink">nourish</h1>
+        <DayContextBar variant="compact" className="mt-0.5" />
         <p className="text-sm text-whisper mt-1">{pickEncouragement(seed)}</p>
       </div>
 
@@ -104,6 +111,13 @@ export function HealthDashboard({
       <Card>
         <p className="font-display text-lg text-ink mb-3">today&apos;s bites</p>
         <MealSlotTimeline entries={foodLog} />
+        {foodLog.some(hasMealPhoto) && (
+          <p className="mt-3 text-xs text-whisper">
+            <Link href="/shelf" className="underline decoration-beige/80">
+              meal polaroids live on your memory shelf →
+            </Link>
+          </p>
+        )}
       </Card>
 
       {whisper && <MoodFoodWhisper text={whisper} />}
