@@ -30,7 +30,7 @@ export function buildStartsAtIso(
   const targetMins = (wantHour || 0) * 60 + (wantMinute || 0);
   const { timeMin, timeMax } = ritualDayBoundsUtc(ritualDate, timeZone);
   let t = new Date(timeMin).getTime();
-  const hi = new Date(timeMax).getTime();
+  const hi = new Date(timeMax).getTime() - 60_000;
   let best = t;
   let bestDiff = Infinity;
   while (t <= hi) {

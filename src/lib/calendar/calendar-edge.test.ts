@@ -151,6 +151,13 @@ describe("event-timing", () => {
     expect(parseTimeFromStartsAt(iso, "UTC")).toBe("14:30");
   });
 
+  it("buildStartsAtIso round-trips 14:30 in India and US timezones", () => {
+    for (const tz of ["Asia/Kolkata", "America/New_York"] as const) {
+      const iso = buildStartsAtIso("2026-05-20", "14:30", tz);
+      expect(parseTimeFromStartsAt(iso, tz)).toBe("14:30");
+    }
+  });
+
   it("normalizeEventTiming clears times when all-day", () => {
     expect(
       normalizeEventTiming({
@@ -200,6 +207,18 @@ describe("ritualDayBoundsUtc", () => {
     const { timeMin, timeMax } = ritualDayBoundsUtc("2025-06-15", "Asia/Tokyo");
     expect(dateInTimeZone(new Date(timeMin), "Asia/Tokyo")).toBe("2025-06-15");
     expect(new Date(timeMax).getTime()).toBeGreaterThan(new Date(timeMin).getTime());
+    const startParts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Tokyo",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(timeMin));
+    expect(startParts.find((p) => p.type === "hour")?.value).toBe("00");
+    expect(startParts.find((p) => p.type === "minute")?.value).toBe("00");
+    const endMs = new Date(timeMax).getTime();
+    const startMs = new Date(timeMin).getTime();
+    expect(endMs - startMs).toBeGreaterThan(23 * 60 * 60 * 1000);
+    expect(dateInTimeZone(new Date(endMs), "Asia/Tokyo")).toBe("2025-06-16");
   });
 });
 

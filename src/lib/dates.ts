@@ -114,16 +114,31 @@ export function hourInTimeZone(date: Date, timeZone = DEFAULT_TIMEZONE): number 
 /** UTC instants bounding a ritual calendar day in the given IANA timezone */
 export function ritualDayBoundsUtc(date: string, timeZone = DEFAULT_TIMEZONE) {
   const [y, m, d] = date.split("-").map(Number);
-  let lo = Date.UTC(y, m - 1, d, 0, 0, 0);
+  let lo = Date.UTC(y, m - 1, d, 0, 0, 0) - 48 * 60 * 60 * 1000;
   let hi = Date.UTC(y, m - 1, d + 2, 0, 0, 0);
-  while (hi - lo > 60_000) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (dateInTimeZone(new Date(mid), timeZone) === date) lo = mid;
-    else hi = mid;
+
+  // Earliest instant still on `date` in `timeZone` (start of ritual day)
+  let startLo = lo;
+  let startHi = hi;
+  while (startHi - startLo > 60_000) {
+    const mid = Math.floor((startLo + startHi) / 2);
+    if (dateInTimeZone(new Date(mid), timeZone) === date) startHi = mid;
+    else startLo = mid;
   }
+  const dayStart = startHi;
+
+  // First instant after the ritual day (exclusive end)
+  let endLo = dayStart;
+  let endHi = hi;
+  while (endHi - endLo > 60_000) {
+    const mid = Math.floor((endLo + endHi) / 2);
+    if (dateInTimeZone(new Date(mid), timeZone) === date) endLo = mid;
+    else endHi = mid;
+  }
+
   return {
-    timeMin: new Date(lo).toISOString(),
-    timeMax: new Date(hi).toISOString(),
+    timeMin: new Date(dayStart).toISOString(),
+    timeMax: new Date(endHi).toISOString(),
   };
 }
 
