@@ -136,7 +136,26 @@ export async function getDailyEntry(
       .eq("user_id", userId)
       .eq("date", date)
       .maybeSingle();
-    if (!error && data) return data as DailyEntry;
+    if (!error && data) {
+      const row = data as DailyEntry;
+      const local = localStore.getDaily(date);
+      if (
+        local &&
+        (local.user_id === userId || isLocalUserId(userId)) &&
+        local.date === date
+      ) {
+        return {
+          ...row,
+          mood: row.mood ?? local.mood,
+          water_ml: Math.max(row.water_ml ?? 0, local.water_ml ?? 0),
+          note: row.note ?? local.note,
+          sleep_start: row.sleep_start ?? local.sleep_start,
+          sleep_end: row.sleep_end ?? local.sleep_end,
+          sleep_quality: row.sleep_quality ?? local.sleep_quality,
+        };
+      }
+      return row;
+    }
   }
   const local = localStore.getDaily(date);
   if (!local) return null;
@@ -169,7 +188,10 @@ export async function upsertDailyEntry(
   if (shouldUseSupabase(userId)) {
     const supabase = createClient()!;
     const { error } = await supabase.from("daily_entries").upsert(merged);
-    if (!error) return merged;
+    if (!error) {
+      localStore.setDaily(merged);
+      return merged;
+    }
     console.warn("[bloomlog] daily upsert:", error.message);
   }
 

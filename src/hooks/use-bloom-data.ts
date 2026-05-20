@@ -36,6 +36,8 @@ export function useDaily(userId: string | null) {
     queryKey: ["daily", userId, date],
     queryFn: () => (userId ? api.getDailyEntry(userId, date) : null),
     enabled: !!userId,
+    /** Keep Today→Garden in sync when mood/water is patched without waiting on a refetch. */
+    staleTime: 60_000,
   });
 }
 

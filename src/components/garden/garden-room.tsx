@@ -2,19 +2,32 @@
 
 import { useRef, useState } from "react";
 import { m } from "framer-motion";
+import { GardenMoodAtmosphere } from "@/components/garden/garden-mood-atmosphere";
 import { getGardenItem } from "@/lib/garden/items";
-import type { GardenItem, RoomTheme } from "@/lib/types";
+import type { GardenItem, Mood, RoomTheme } from "@/lib/types";
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
+const MOOD_GARDEN_SUBTITLE: Record<Mood, string> = {
+  sunny: "a bright quiet in here",
+  cozy: "a cozy quiet in here",
+  dreamy: "a dreamy quiet in here",
+  rainy: "a rainy quiet in here",
+  sleepy: "a sleepy quiet in here",
+  golden_hour: "a golden quiet in here",
+  stormy: "a stormy quiet in here",
+};
+
 export function GardenRoom({
   items,
   roomTheme,
+  mood = null,
 }: {
   items: GardenItem[];
   roomTheme: RoomTheme;
+  mood?: Mood | null;
 }) {
   const [story, setStory] = useState<string | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -40,15 +53,22 @@ export function GardenRoom({
     }
   };
 
+  const moodSubtitle = mood ? MOOD_GARDEN_SUBTITLE[mood] : null;
+
   return (
     <m.div
-      className="relative flex w-full max-w-full min-h-[70vh] flex-col overflow-hidden rounded-[28px] bg-gradient-to-b from-beige/60 to-cream"
+      className="relative flex w-full max-w-full min-h-[70vh] flex-col overflow-hidden rounded-[28px] bg-cream/40"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
+      <GardenMoodAtmosphere mood={mood} />
+
       <header className="relative z-10 shrink-0 px-6 pt-6 pb-2">
         <h1 className="font-display text-2xl text-ink">your {roomLabel}</h1>
         <p className="text-sm text-whisper mt-1">nothing wilts. it just waits.</p>
+        {moodSubtitle && (
+          <p className="text-sm text-sage mt-1">{moodSubtitle}</p>
+        )}
         {!isEmpty && (
           <p className="text-xs text-whisper mt-2">
             {items.length} {items.length === 1 ? "piece" : "pieces"} from your gentle days ·
@@ -57,7 +77,7 @@ export function GardenRoom({
         )}
       </header>
 
-      <div className="relative min-h-0 flex-1 px-4 pb-28">
+      <div className="relative z-10 min-h-0 flex-1 px-4 pb-28">
         {isEmpty ? (
           <div className="flex h-full min-h-[40vh] flex-col items-center justify-center px-4 text-center">
             <p className="text-5xl mb-4" aria-hidden>
@@ -115,7 +135,7 @@ export function GardenRoom({
       </div>
 
       <m.div
-        className="absolute bottom-0 left-0 right-0 h-24 bg-beige/80 rounded-t-[40px] pointer-events-none"
+        className="absolute bottom-0 left-0 right-0 z-[1] h-24 bg-beige/80 rounded-t-[40px] pointer-events-none"
         layout
         aria-hidden
       />
