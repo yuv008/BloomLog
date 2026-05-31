@@ -105,7 +105,11 @@ export function useAddFoodLog(userId: string | null) {
           fd.append("date", ritualDate);
           fd.append("source", rest.source ?? "polaroid");
           fd.append("emotional_tags", JSON.stringify(rest.emotional_tags ?? []));
-          const res = await fetch("/api/upload/meal-photo", { method: "POST", body: fd });
+          const res = await fetch("/api/upload/meal-photo", {
+            method: "POST",
+            body: fd,
+            credentials: "include",
+          });
           if (!res.ok) {
             const err = (await res.json()) as { error?: string };
             throw new Error(err.error ?? "photo upload failed");

@@ -22,7 +22,11 @@ function loadImage(file: File): Promise<HTMLImageElement> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("could not load image"));
+      const hint =
+        file.type.includes("heic") || file.type.includes("heif")
+          ? " — try choosing JPEG from your gallery"
+          : "";
+      reject(new Error(`could not load image${hint}`));
     };
     img.src = url;
   });
@@ -61,17 +65,25 @@ function resizeToCanvas(
   return canvas;
 }
 
+/** Encode canvas; tries webp first, then jpeg for Safari / older WebViews. */
+export async function canvasToMealBlob(
+  canvas: HTMLCanvasElement,
+  quality: number
+): Promise<Blob> {
+  const encode = (type: string) =>
+    new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), type, quality);
+    });
+
+  const webp = await encode("image/webp");
+  if (webp) return webp;
+  const jpeg = await encode("image/jpeg");
+  if (jpeg) return jpeg;
+  throw new Error("could not encode image");
+}
+
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error("webp encode failed"));
-      },
-      "image/webp",
-      quality
-    );
-  });
+  return canvasToMealBlob(canvas, quality);
 }
 
 export async function compressMealPhoto(file: File): Promise<CompressedMealPhoto> {

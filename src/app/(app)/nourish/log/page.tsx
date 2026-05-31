@@ -14,6 +14,7 @@ function NourishLogContent() {
   const addFood = useAddFoodLog(userId);
   const [open, setOpen] = useState(true);
   const [recents, setRecents] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const triggerPetal = useUiStore((s) => s.triggerPetalBurst);
 
   useEffect(() => {
@@ -23,7 +24,8 @@ function NourishLogContent() {
   const onSave = async (
     input: Parameters<typeof addFood.mutateAsync>[0]
   ) => {
-    if (!userId) return;
+    if (!userId) throw new Error("not signed in");
+    setSaveError(null);
     await addFood.mutateAsync(input);
     trackEvent("food_logged", {
       source: input.source ?? "quick",
@@ -42,6 +44,9 @@ function NourishLogContent() {
       }}
       onSave={onSave}
       recents={recents}
+      saving={addFood.isPending}
+      saveError={saveError}
+      onClearError={() => setSaveError(null)}
     />
   );
 }
